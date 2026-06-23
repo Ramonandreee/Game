@@ -9,15 +9,24 @@
 
 ---
 
-## 🎮 Jogar agora (protótipo jogável)
+## 🎮 Jogar agora (dois protótipos jogáveis)
 
-Já existe um **protótipo jogável** da fatia vertical — o "feel + economy prototype" do Ano 1 do [plano de produção](docs/11-PRODUCTION-PLAN.md). Roda no navegador, **sem instalar nada**:
+Existem **dois protótipos jogáveis**, ambos no navegador e **sem instalar nada**:
 
-> **▶ Abra [`game/index.html`](game/index.html) no seu navegador** (baixe o arquivo e dê duplo-clique, ou abra direto).
+### 🌆 1. Meridian City — mundo 3D navegável *(novo)*
+> **▶ Abra [`world/index.html`](world/index.html) no navegador.**
 
-O que dá para fazer agora: começar falido nos Boroughs, sobreviver de freelas, **fundar empresas** (10 setores, cada um com economia própria), **contratar agentes** com personalidade que pedem aumento / abrem concorrentes, **fazer networking** (café → coworking → Apex Club), enfrentar uma **economia viva** (ciclos de boom/recessão, juros), comprar **status** (apartamento, carro) que muda como o mundo te trata, e subir as **5 fases** de Sobrevivência a Legado. Salva automático. Veja [`game/README.md`](game/README.md) para detalhes.
+Caminhe em **primeira pessoa** por uma Meridian City estilizada ao anoitecer: skyline com janelas acesas, ciclo dia/noite, multidões, os distritos do [World Design](docs/04-WORLD-DESIGN.md) (Boroughs, The Grid, Sterling Heights, Goldhaven, Ironside). Vá até as **pessoas com anel dourado** e converse (networking), entre no **The Foundry** para fundar empresas e contratar, na **Meridian Exchange** para ver o mercado, no **Apex Club** (gated por reputação), e durma no **apartamento** para encerrar o dia. A economia viva roda por baixo. Controles: `WASD` andar · `Shift` correr · mouse olhar · `E` interagir · `Tab` celular (MeridianOS).
+> *Precisa de internet na primeira vez (carrega a engine Three.js de um CDN). Stylized real-time 3D — não é o build final Nanite/Lumen.*
 
-*A economia foi balanceada por simulação headless (centenas de dias simulados) e as rotas de UI validadas por testes automatizados — conforme a disciplina de [de-risk early](docs/11-PRODUCTION-PLAN.md).*
+### 📊 2. O simulador de sistemas (2D, 100% offline)
+> **▶ Abra [`game/index.html`](game/index.html) no navegador.**
+
+A versão de *profundidade de sistemas*: mesmo loop, com mais ferramentas de gestão à mão (status/imóveis/veículos, painéis detalhados). Roda offline.
+
+**Ambos** entregam: começar falido nos Boroughs → freelas → **fundar empresas** (setores com economia própria) → **contratar agentes** que lembram de você, pedem aumento e abrem concorrentes → **networking** → **economia viva** (boom/recessão, juros) → subir as **5 fases** de Sobrevivência a Legado. Salvam automático.
+
+*Economia balanceada por simulação headless (centenas de dias) e rotas de UI validadas por testes automatizados — a disciplina de [de-risk early](docs/11-PRODUCTION-PLAN.md). Detalhes: [`game/README.md`](game/README.md) · [`world/README.md`](world/README.md).*
 
 ---
 

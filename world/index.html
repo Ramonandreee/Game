@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOGUL — Meridian City (3D)</title>
+<style>
+  :root{
+    --gold:#e8c879;--gold2:#d4af37;--txt:#eef2f8;--muted:#9aa6b6;--dim:#5b6776;
+    --panel:#121822;--panel2:#1a212c;--line:#2a3440;--green:#46d18a;--red:#f0685f;--blue:#5aa9f0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#05070a;color:var(--txt);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+  #c{position:fixed;inset:0;display:block}
+  .ui{position:fixed;z-index:10}
+  /* crosshair */
+  #cross{left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.55);box-shadow:0 0 6px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:.2s}
+  body.locked #cross{opacity:1}
+  /* top status bar */
+  #hud{top:0;left:0;right:0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:10px 16px;background:linear-gradient(180deg,rgba(7,10,14,.85),rgba(7,10,14,0));
+    pointer-events:none}
+  .brand{font-weight:800;letter-spacing:3px;font-size:18px;
+    background:linear-gradient(180deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .phase{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);
+    border:1px solid #3a3220;background:#1a160c;padding:4px 10px;border-radius:999px}
+  .st{min-width:70px}.st .k{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .st .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .v.cash{color:var(--green)}.v.cash.neg{color:var(--red)}.v.net{color:var(--gold)}
+  .ebar{width:80px;height:7px;border-radius:5px;background:#222b37;overflow:hidden;margin-top:4px}
+  .ebar i{display:block;height:100%;background:linear-gradient(90deg,#46d18a,#7fe3b0)}
+  #loc{margin-left:auto;text-align:right}
+  #loc .d{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+  #loc .n{font-size:14px;font-weight:700;color:var(--gold)}
+  #clock{font-size:11px;color:var(--muted)}
+  /* interaction prompt */
+  #prompt{left:50%;bottom:90px;transform:translateX(-50%);background:rgba(10,14,20,.82);
+    border:1px solid var(--gold2);border-radius:12px;padding:10px 18px;font-size:14px;
+    opacity:0;transition:.15s;pointer-events:none;text-align:center;backdrop-filter:blur(4px)}
+  #prompt b{color:var(--gold)}
+  #prompt.on{opacity:1}
+  .key{display:inline-block;min-width:20px;padding:1px 7px;border:1px solid #4a5666;border-radius:6px;
+    background:#222b37;font-weight:700;font-size:12px;margin:0 2px}
+  /* hint bottom-left */
+  #hint{left:14px;bottom:12px;font-size:11px;color:var(--dim);line-height:1.7;pointer-events:none}
+  #hint .key{font-size:10px}
+  /* blocker / start */
+  #blocker{inset:0;position:fixed;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(900px 500px at 70% 20%,#16243440,transparent),rgba(5,7,10,.92);text-align:center;cursor:pointer}
+  #blocker .box{max-width:560px;padding:30px}
+  #blocker h1{font-size:clamp(40px,9vw,82px);font-weight:900;letter-spacing:8px;line-height:1;
+    background:linear-gradient(180deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  #blocker .tag{color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-size:12px;margin-top:6px}
+  #blocker p{color:#c3cdd9;margin:16px 0}
+  #blocker .cta{display:inline-block;margin-top:8px;padding:12px 26px;border-radius:10px;font-weight:700;
+    background:linear-gradient(180deg,var(--gold),var(--gold2));color:#1a1405}
+  #blocker .controls{margin-top:18px;font-size:12px;color:var(--dim)}
+  /* panels & modals */
+  .scrim{position:fixed;inset:0;z-index:20;background:rgba(4,6,9,.6);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:18px}
+  .scrim.on{display:flex}
+  .panel{width:100%;max-width:560px;max-height:86vh;overflow:auto;background:linear-gradient(180deg,#141b25,#0e131b);
+    border:1px solid #2f3a49;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .panel .top{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:#141b25;z-index:2}
+  .panel .top .ico{font-size:26px}
+  .panel .top h3{font-size:16px}.panel .top .k{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  .panel .top .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:22px;line-height:1;padding:0 6px}
+  .panel .body{padding:16px 20px}
+  .panel .body p{font-size:14px;color:#cdd6e2;margin-bottom:12px}
+  .tabs{display:flex;gap:6px;padding:10px 20px 0;flex-wrap:wrap}
+  .tab{font-size:12px;font-weight:600;color:var(--muted);padding:7px 12px;border-radius:9px;cursor:pointer}
+  .tab.on{color:var(--gold);background:#161109;border:1px solid #3a3220}
+  .opt{display:block;width:100%;text-align:left;cursor:pointer;background:#1b2330;border:1px solid #2f3a49;
+    border-radius:11px;padding:12px 15px;margin-bottom:9px;color:var(--txt);transition:.12s}
+  .opt:hover{background:#222d3c;border-color:var(--gold2)}
+  .opt:disabled{opacity:.45;cursor:not-allowed}
+  .opt .t{font-weight:700;font-size:13.5px}.opt .d{font-size:12px;color:var(--muted)}
+  .row{display:flex;align-items:center;gap:12px;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);margin-bottom:9px}
+  .row .av{width:38px;height:38px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;background:#222c3a;color:var(--gold)}
+  .row .info{flex:1;min-width:0}.row .info .n{font-weight:700;font-size:14px}.row .info .m{font-size:12px;color:var(--muted)}
+  .row .side{text-align:right;font-size:12px;color:var(--muted)}.row .side .big{font-size:14px;font-weight:700;color:var(--txt)}
+  .bar{height:6px;border-radius:5px;background:#222b37;overflow:hidden;margin-top:5px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold))}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:#1a2230;color:var(--muted);border:1px solid var(--line)}
+  .btn{font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border-radius:10px;padding:9px 14px;border:1px solid #2f3a49;background:#1c242f;color:var(--txt)}
+  .btn:hover{background:#232d3a}.btn.gold{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#1a1405;border:none}
+  .btn.ghost{background:transparent}.btn.small{font-size:12px;padding:7px 11px}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:6px 0 12px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px}
+  .kpi .k{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}.kpi .v{font-size:17px;font-weight:800}
+  .empty{text-align:center;color:var(--dim);padding:26px 10px;font-size:13px}
+  .dim{color:var(--dim)}.muted{color:var(--muted)}.small{font-size:12px}.g{color:var(--green)}.r{color:var(--red)}.center{text-align:center}.mt{margin-top:12px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(18px);z-index:25;
+    background:#171f29;border:1px solid var(--gold2);color:var(--gold);padding:10px 18px;border-radius:999px;
+    font-weight:700;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  #fatal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:30px;background:rgba(5,7,10,.96);text-align:center}
+  #fatal .b{max-width:520px}#fatal h2{color:var(--red);margin-bottom:12px}#fatal p{color:#c3cdd9;font-size:14px;line-height:1.6}#fatal code{color:var(--gold);font-size:12px;display:block;margin-top:14px;background:#11161e;padding:10px;border-radius:8px;word-break:break-word}
+  .legacyrank{font-size:24px;font-weight:900;letter-spacing:2px;background:linear-gradient(180deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="ui" id="cross"></div>
+
+<div class="ui" id="hud">
+  <span class="brand">MOGUL</span>
+  <span class="phase" id="phase">Fase 1 · Sobrevivência</span>
+  <div class="st"><div class="k">Dia</div><div class="v" id="sDay">1</div></div>
+  <div class="st"><div class="k">Caixa</div><div class="v cash" id="sCash">$0</div></div>
+  <div class="st"><div class="k">Patrimônio</div><div class="v net" id="sNet">$0</div></div>
+  <div class="st"><div class="k">Energia</div><div class="ebar"><i id="sEnergy"></i></div></div>
+  <div id="loc"><div class="d">Distrito</div><div class="n" id="sLoc">The Boroughs</div><div id="clock">🌆 18:00</div></div>
+</div>
+
+<div class="ui" id="prompt"></div>
+<div class="ui" id="hint">
+  <span class="key">W A S D</span> andar &nbsp; <span class="key">Shift</span> correr &nbsp; <span class="key">Mouse</span> olhar &nbsp; <span class="key">E</span> interagir &nbsp; <span class="key">Tab</span> celular &nbsp; <span class="key">Esc</span> liberar cursor
+</div>
+
+<div id="blocker">
+  <div class="box">
+    <h1>MOGUL</h1>
+    <div class="tag">Meridian City</div>
+    <p>Você está nos <b>Boroughs</b>, ao anoitecer. A cidade brilha lá na frente — o Distrito Financeiro, o Grid, Goldhaven. Tudo aquilo pode ser seu. Caminhe até as pessoas, aperte mãos, funde empresas, construa o império.</p>
+    <span class="cta">▶ Clique para entrar em Meridian</span>
+    <div class="controls">WASD andar · Shift correr · Mouse olhar · E interagir · Tab celular · Esc liberar cursor</div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"><div class="panel" id="panel"></div></div>
+<div id="toast"></div>
+<div id="fatal"><div class="b"><h2>Não foi possível iniciar o mundo 3D</h2><p id="fatalMsg"></p><code id="fatalCode"></code></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+}}
+</script>
+
+<script>
+/* fatal handler + CDN/offline detector (classic script so it always runs) */
+window.__mogulReady=false;
+function showFatal(msg,code){
+  var f=document.getElementById('fatal'); if(!f)return;
+  document.getElementById('fatalMsg').innerHTML=msg||"Erro desconhecido.";
+  document.getElementById('fatalCode').textContent=code||"";
+  f.style.display='flex';
+}
+window.addEventListener('error',function(e){
+  if(!window.__mogulReady) showFatal("Houve um erro ao carregar o mundo 3D. Se você abriu o arquivo offline, ele precisa de internet na primeira vez (carrega a engine Three.js de um CDN). Tente conectar e recarregar.", (e.message||'')+ (e.filename?(' @ '+e.filename):''));
+});
+setTimeout(function(){
+  if(!window.__mogulReady) showFatal("O mundo demorou para carregar. Provavelmente o navegador não conseguiu baixar a engine 3D (Three.js) do CDN — verifique sua conexão e recarregue. (O simulador 2D em <b>game/index.html</b> roda 100% offline.)","");
+},9000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+try{
+/* ===================================================================== *
+ *  MOGUL — Meridian City (walkable 3D slice)
+ *  Real-time 3D world (Three.js) wrapping the proven business sim.
+ * ===================================================================== */
+
+/* ----------------------------- helpers ----------------------------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const chance=p=>Math.random()<p;
+function money(n){const s=n<0?"-":"";n=Math.abs(Math.round(n));
+  if(n>=1e9)return s+"$"+(n/1e9).toFixed(2)+"B";if(n>=1e6)return s+"$"+(n/1e6).toFixed(2)+"M";
+  if(n>=1e3)return s+"$"+(n/1e3).toFixed(1)+"k";return s+"$"+n;}
+function moneyFull(n){return (n<0?"-$":"$")+Math.abs(Math.round(n)).toLocaleString("en-US");}
+const $=id=>document.getElementById(id);
+
+/* ============================ GAME STATE ============================ */
+const SAVE_KEY="mogul3d_save_v1";
+const NICHES=[
+  {id:"saas",name:"SaaS B2B",ico:"🧩",cost:[3000,5000],base:[60,110],risk:.10,growth:1.18,family:"tech",desc:"Custo marginal ~zero, escala absurda."},
+  {id:"ai",name:"IA / Deep Tech",ico:"🧠",cost:[6000,9000],base:[90,160],risk:.22,growth:1.30,family:"tech",desc:"Hype-driven. Talento caro, retorno explosivo."},
+  {id:"fintech",name:"Fintech",ico:"💳",cost:[5000,8000],base:[80,140],risk:.18,growth:1.22,family:"tech",desc:"Regulação pesada, confiança é tudo."},
+  {id:"retail",name:"Varejo",ico:"🛍️",cost:[2500,4500],base:[55,95],risk:.12,growth:1.10,family:"real",desc:"Margem fina, volume manda."},
+  {id:"logi",name:"Logística",ico:"🚚",cost:[4000,7000],base:[70,120],risk:.13,growth:1.12,family:"real",desc:"Rede física, a espinha da economia."},
+  {id:"energy",name:"Energia",ico:"⚡",cost:[9000,15000],base:[130,210],risk:.14,growth:1.16,family:"real",desc:"Capex enorme, horizonte longo."},
+  {id:"media",name:"Mídia",ico:"🎬",cost:[4000,7000],base:[60,150],risk:.24,growth:1.20,family:"soft",desc:"Hits & misses. Vira influência cultural."},
+  {id:"health",name:"Saúde",ico:"🩺",cost:[6000,10000],base:[100,170],risk:.12,growth:1.14,family:"soft",desc:"Confiança, regulação, margens sólidas."},
+];
+const FIRST=["Alex","Sam","Noa","Liv","Cris","Vic","Dani","Theo","Mara","Iris","Leo","Nina","Caio","Bia","Hugo","Lara","Rafa","Yuki","Omar","Sofia","Marco","Eva","Tariq","Camila","Priya","Enzo","Mila"];
+const LAST=["Moreau","Sterling","Okafor","Vance","Reyes","Cho","Bianchi","Haddad","Costa","Nakamura","Adeyemi","Volkov","Mensah","Duarte","Khan","Romano","Silva","Aoki","Vega","Brandt"];
+const ROLES=[{t:"Engenheiro(a)",fam:"tech"},{t:"Cientista de Dados",fam:"tech"},{t:"Designer",fam:"tech"},{t:"Head de Vendas",fam:"soft"},{t:"Operações",fam:"real"},{t:"Gerente Geral",fam:"any"},{t:"Marketing",fam:"soft"},{t:"Financeiro(a)",fam:"any"}];
+const TRAITS=["Visionário","Workaholic","Calculista","Carismático","Teimoso","Leal","Ambicioso","Cético","Criativo","Frio","Idealista","Oportunista"];
+const PHASES=[{n:1,name:"Sobrevivência",net:0},{n:2,name:"Crescimento",net:60000,need:"company"},{n:3,name:"Escala",net:1200000},{n:4,name:"Influência",net:20000000},{n:5,name:"Legado",net:150000000}];
+
+let S=null;
+function newGame(){
+  S={day:1,cash:1400,energy:10,maxEnergy:10,stress:8,
+     skills:{negotiation:10,charisma:12,finance:8,leadership:8},
+     rep:{market:5,talent:5,public:6},
+     companies:[],contacts:[],phase:1,phaseName:"Sobrevivência",
+     market:{cycle:"estável",mult:1.0,rate:6.0,mood:0,target:1.0},
+     over:false,won:false,peakNet:0,founded:0,hires:0,
+     metIds:[],   // interactable world NPCs already turned into contacts
+  };
+  save();
+}
+function skillAvg(){return (S.skills.negotiation+S.skills.charisma+S.skills.finance+S.skills.leadership)/4;}
+function roleFit(e,n){if(!n)return 1;if(e.fam==="any")return 1.05;return e.fam===n.family?1.18:0.9;}
+function coRevenue(co){const n=NICHES.find(x=>x.id===co.niche);let emp=0;co.employees.forEach(e=>emp+=e.competence*0.012*roleFit(e,n));
+  const rep=1+(S.rep.market-5)*0.012+(S.rep.public-5)*0.006;const ops=0.45+co.ops/100*0.95;const f=1+(skillAvg()-8)*0.01;
+  return Math.max(0,co.baseRev*(1+emp)*ops*S.market.mult*rep*f*co.scale);}
+function coCosts(co){let s=0;co.employees.forEach(e=>s+=e.salary);return s+co.overhead;}
+function coProfit(co){return coRevenue(co)-coCosts(co);}
+function coValue(co){const n=NICHES.find(x=>x.id===co.niche);const annual=coProfit(co)*365;
+  const mult=(6+(n?n.growth:1)*4)*(0.7+S.market.mult*0.4);return Math.max(0,Math.round(Math.max(coRevenue(co)*36,annual*mult/12)));}
+function dailyExpenses(){return 40+6+S.phase*S.phase*4;}
+function netWorth(){let n=S.cash;S.companies.forEach(c=>n+=coValue(c));return Math.round(n);}
+function checkPhase(){const net=netWorth();for(let i=PHASES.length-1;i>=0;i--){const p=PHASES[i];
+  if(net>=p.net&&(p.need!=="company"||S.companies.length>0)){if(p.n>S.phase){S.phase=p.n;S.phaseName=p.name;onPhaseUp(p);}break;}}}
+function onPhaseUp(p){const m={2:"Sua primeira tração. O mundo começa a te notar.",3:"Você comanda — não opera mais. Vários negócios sob seu nome.",4:"A mídia liga. O mercado escuta. Você é alguém em Meridian.",5:"Você não persegue dinheiro. Persegue permanência. Bem-vindo ao topo."};
+  toast("🏆 Nova fase: "+p.name);log("🏆 FASE "+p.n+": "+p.name.toUpperCase()+" — "+(m[p.n]||""));if(p.n===5)S.won=true;flashSky();}
+
+/* world->contact generation */
+function genPerson(asTalent,tier){tier=tier||0;const role=pick(ROLES);
+  const wb=[[3,40],[40,400],[400,8000]][clamp(tier,0,2)];const wealth=Math.round(rnd(wb[0],wb[1])*1000);
+  let kind=asTalent?"talent":(Math.random()<.34?"investor":Math.random()<.6?"client":"talent");
+  return {id:"p"+Date.now()+ri(0,99999),name:pick(FIRST)+" "+pick(LAST),age:ri(26,58),role:role.t,fam:role.fam,kind,
+    competence:ri(50,92),ambition:ri(35,90),wealth,traits:[pick(TRAITS),pick(TRAITS)],
+    rel:ri(8,20),salary:Math.round(rnd(80,200)),happy:60,tenure:0,memory:[]};}
+function relLabel(r){return r>=80?"Aliado de confiança":r>=55?"Parceria sólida":r>=35?"Conhecido próximo":r>=15?"Conhecido":"Contato frio";}
+function remember(p,t){p.memory.unshift(t);if(p.memory.length>3)p.memory.length=3;}
+
+/* daily tick (sleep) */
+function endDay(){
+  if(S.over)return;
+  let coNet=0;
+  S.companies.forEach(co=>{co.age=(co.age||0)+1;coNet+=coProfit(co);co.ops=clamp(co.ops-rnd(0.4,1.2),0,100);
+    co.scale*=rnd(0.998,1.004);const n=NICHES.find(x=>x.id===co.niche);
+    if(chance(n.risk*0.05)){co.scale*=rnd(.82,.93);log("Tropeço na "+co.name+": um problema comeu parte da receita.");}});
+  S.cash+=coNet;const bills=dailyExpenses();S.cash-=bills;
+  employeeTick();marketTick();
+  S.energy=clamp(S.maxEnergy-Math.floor(S.stress/25),3,S.maxEnergy);
+  if(S.stress>80&&chance(0.25)){S.stress=clamp(S.stress-30,0,100);log("Seu corpo cobrou a conta — um susto te obrigou a parar.");}
+  if(S.day>2&&chance(0.4))fireEvent();
+  S.day++;
+  if(S.companies.length)log("Dia "+(S.day-1)+" fechado · empresas "+(coNet>=0?"+":"")+money(coNet)+" · custos -"+money(bills));
+  else log("Dia "+(S.day-1)+" fechado · custos de vida -"+money(bills));
+  if(S.cash<-3000){S.over=true;log("💀 Falência. Os credores venceram.");}
+  S.peakNet=Math.max(S.peakNet,netWorth());checkPhase();save();
+  refreshHUD();
+  if(S.over)showEnd();
+}
+function employeeTick(){S.companies.forEach(co=>{for(let i=co.employees.length-1;i>=0;i--){const e=co.employees[i];e.tenure++;
+  const lead=(S.skills.leadership-8)*0.2;e.happy=clamp((e.happy||60)+(co.ops>55?1:-1)+lead*0.3+rnd(-2,2),0,100);
+  if(e.tenure%18===0&&e.ambition>55&&chance(0.5)){e._wants=Math.round(e.salary*rnd(1.15,1.35));pendingRaise={e,co};}
+  if(e.happy<28&&chance(0.16)){co.employees.splice(i,1);
+    if(e.ambition>65&&chance(0.4)){co.scale*=0.92;S.rep.talent=clamp(S.rep.talent-2,0,100);log("🔥 "+e.name+" saiu da "+co.name+" e foi abrir um CONCORRENTE.");}
+    else log(e.name+" pediu demissão da "+co.name+". Clima ruim cobra seu preço.");}}});}
+function marketTick(){const m=S.market;m.mood=clamp(m.mood+rnd(-.1,.1),-1,1);
+  if(chance(0.045)){const r=Math.random();
+    if(r<.33){m.cycle="recessão";m.target=.78;m.rate=clamp(m.rate+rnd(.5,2),1,18);log("📉 Banco Central subiu os juros. Recessão em Meridian.");}
+    else if(r<.66){m.cycle="aquecido";m.target=1.28;m.rate=clamp(m.rate-rnd(.3,1.2),1,18);log("📈 Boom! Capital barato, otimismo no ar.");}
+    else{m.cycle="estável";m.target=1.0;log("O mercado se normaliza.");}}
+  m.mult+=(m.target-m.mult)*0.15+m.mood*0.01;m.mult=clamp(m.mult,0.6,1.5);}
+
+/* events */
+let pendingRaise=null;
+function fireEvent(){
+  if(pendingRaise){const {e,co}=pendingRaise;pendingRaise=null;e._wants=null;
+    return modal("💬","Pedido de aumento","<p><b>"+e.name+"</b> ("+e.role+" na "+co.name+") quer subir para "+moneyFull(Math.round(e.salary*1.25))+"/dia.</p>",[
+      {t:"✅ Conceder",d:"Retém e motiva.",fn:()=>{e.salary=Math.round(e.salary*1.25);e.happy=100;remember(e,"Você reconheceu o valor dele(a).");log("Você deu o aumento a "+e.name+".");close();}},
+      {t:"🤝 Oferecer sociedade",d:"Alinha interesses.",fn:()=>{e.happy=100;co.scale*=1.06;remember(e,"Você o(a) tornou sócio(a).");log("Você fez de "+e.name+" sócio(a).");close();}},
+      {t:"❌ Negar",d:"Segura custo, arrisca a pessoa.",fn:()=>{e.happy=clamp((e.happy||60)-30,0,100);remember(e,"Você negou o que ele(a) achava justo.");log("Você negou o aumento de "+e.name+".");close();}},
+    ]);}
+  const big=S.companies.filter(c=>coValue(c)>120000).sort((a,b)=>coValue(b)-coValue(a))[0];
+  if(big&&chance(0.4)){const off=Math.round(coValue(big)*rnd(1.2,1.9));
+    return modal("🦈","Oferta de aquisição","<p>Um conglomerado-IA quer a <b>"+big.name+"</b> por <b style='color:var(--gold)'>"+moneyFull(off)+"</b> — acima do valuation.</p>",[
+      {t:"💰 Vender por "+moneyFull(off),d:"Exit. Caixa agora.",fn:()=>{S.cash+=off;S.companies=S.companies.filter(c=>c!==big);log("Você vendeu a "+big.name+" por "+money(off)+".");toast("Exit: "+money(off));checkPhase();close();}},
+      {t:"🛡️ Recusar",d:"Vale mais lá na frente.",fn:()=>{S.rep.market=clamp(S.rep.market+3,0,100);log("Você recusou a oferta. O mercado notou sua ambição.");close();}},
+    ]);}
+  if(S.cash>3000&&chance(0.5)){const amt=ri(2000,8000)+S.phase*ri(1000,3000);
+    return modal("⚡","Oportunidade relâmpago","<p>Um contato sussurra um negócio: aporte <b>"+moneyFull(amt)+"</b> agora e talvez dobre. Talvez.</p>",[
+      {t:"🎲 Entrar com "+moneyFull(amt),d:"Risco real.",fn:()=>{if(S.cash<amt){toast("Caixa insuficiente");return close();}S.cash-=amt;if(chance(.55)){const w=Math.round(amt*rnd(1.6,2.4));S.cash+=w;log("🎲 Deu certo! Retornou "+money(w)+".");}else log("🎲 Você perdeu o aporte de "+money(amt)+".");close();}},
+      {t:"🙅 Passar",d:"Disciplina é estratégia.",fn:()=>{log("Você deixou passar.");close();}},
+    ]);}
+  // flavor
+  if(S.companies.length&&chance(.5)){const co=pick(S.companies);co.scale*=rnd(1.04,1.14);log("📣 Um post sobre a "+co.name+" viralizou. Demanda subiu.");}
+  else if(S.cash>5000){const t=Math.round(S.cash*rnd(.02,.05));S.cash-=t;log("🧾 Impostos: -"+money(t)+".");}
+}
+
+/* save/load */
+function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const r=localStorage.getItem(SAVE_KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+
+/* feed log (kept small, shown in phone) */
+const LOG=[];
+function log(h){LOG.unshift({d:S?S.day:1,h});if(LOG.length>40)LOG.length=40;}
+
+/* ======================= 3D WORLD (Three.js) ======================= */
+const BOUND=300, EYE=1.7;
+const DISTRICTS=[
+  {n:"The Boroughs",  test:(x,z)=>x<-70&&z>20},
+  {n:"The Grid",      test:(x,z)=>x<-20&&z<=20},
+  {n:"Sterling Heights",test:(x,z)=>x>=60&&z<-20},
+  {n:"Ironside Docklands",test:(x,z)=>x>=60&&z>=60},
+  {n:"Goldhaven",     test:(x,z)=>x>=-20&&x<60&&z>40},
+];
+function districtAt(x,z){for(const d of DISTRICTS)if(d.test(x,z))return d.n;return "Midtown";}
+
+let renderer,scene,camera,controls,clock;
+let interactables=[];      // {pos:Vector3, range, label, prompt, onUse, mesh}
+let crowd=null, crowdData=[];
+let sun, hemi, skyMat;
+let timeOfDay=0.78;        // dusk
+const move={f:false,b:false,l:false,r:false,sprint:false};
+
+function initThree(){
+  renderer=new THREE.WebGLRenderer({canvas:$("c"),antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.shadowMap.enabled=false;
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0b1018);
+  scene.fog=new THREE.Fog(0x0b1018,60,520);
+  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.1,1400);
+  camera.position.set(-150,EYE,150);
+  clock=new THREE.Clock();
+
+  hemi=new THREE.HemisphereLight(0x9bb8ff,0x14202e,0.55);scene.add(hemi);
+  sun=new THREE.DirectionalLight(0xffd9a0,1.1);sun.position.set(80,120,40);scene.add(sun);
+  const amb=new THREE.AmbientLight(0x3a4660,0.35);scene.add(amb);
+
+  buildCity();
+  buildCrowd();
+  buildLandmarks();
+  buildPeopleOfInterest();
+
+  controls=new PointerLockControls(camera,document.body);
+  controls.addEventListener('lock',()=>{document.body.classList.add('locked');$("blocker").style.display='none';});
+  controls.addEventListener('unlock',()=>{document.body.classList.remove('locked');if(!scrimOpen())$("blocker").style.display='flex';});
+  // PointerLockControls moves the camera directly (this.object===camera); no need to add it to the scene.
+
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  $("blocker").addEventListener('click',()=>{if(!scrimOpen())controls.lock();});
+  setupKeys();
+}
+
+function buildCity(){
+  // ground
+  const groundMat=new THREE.MeshStandardMaterial({color:0x10151c,roughness:0.95,metalness:0.0});
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(BOUND*2+200,BOUND*2+200),groundMat);
+  ground.rotation.x=-Math.PI/2;scene.add(ground);
+  // road grid (emissive thin strips)
+  const roadMat=new THREE.MeshStandardMaterial({color:0x161d27,emissive:0x182230,emissiveIntensity:.5,roughness:.7});
+  for(let i=-BOUND;i<=BOUND;i+=40){
+    const h=new THREE.Mesh(new THREE.PlaneGeometry(BOUND*2,12),roadMat);h.rotation.x=-Math.PI/2;h.position.set(0,0.02,i);scene.add(h);
+    const v=new THREE.Mesh(new THREE.PlaneGeometry(12,BOUND*2),roadMat);v.rotation.x=-Math.PI/2;v.position.set(i,0.02,0);scene.add(v);
+  }
+  // window texture
+  const tex=makeWindowTexture();
+  // buildings via InstancedMesh
+  const cells=[];
+  for(let x=-BOUND+20;x<BOUND;x+=40){
+    for(let z=-BOUND+20;z<BOUND;z+=40){
+      // skip road lanes (already at multiples of 40); place building blocks between
+      const bx=x+ri(-6,6), bz=z+ri(-6,6);
+      const dist=districtAt(bx,bz);
+      let hRange=[14,40], col=0x1b2430;
+      if(dist==="Sterling Heights"){hRange=[60,150];col=0x202a3a;}
+      else if(dist==="The Grid"){hRange=[20,60];col=0x1d2733;}
+      else if(dist==="Goldhaven"){hRange=[24,70];col=0x2a2418;}
+      else if(dist==="Ironside Docklands"){hRange=[8,22];col=0x171c22;}
+      else if(dist==="The Boroughs"){hRange=[10,26];col=0x191f27;}
+      const h=rnd(hRange[0],hRange[1]);
+      cells.push({x:bx,z:bz,w:rnd(14,24),d:rnd(14,24),h,col});
+    }
+  }
+  const geo=new THREE.BoxGeometry(1,1,1);
+  const mat=new THREE.MeshStandardMaterial({color:0x222c3a,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:.0,roughness:.6,metalness:.1});
+  mat.emissive=new THREE.Color(0xbfd0ff);
+  const inst=new THREE.InstancedMesh(geo,mat,cells.length);
+  const m=new THREE.Matrix4(),col=new THREE.Color();
+  cells.forEach((c,i)=>{m.compose(new THREE.Vector3(c.x,c.h/2,c.z),new THREE.Quaternion(),new THREE.Vector3(c.w,c.h,c.d));inst.setMatrixAt(i,m);col.setHex(c.col);inst.setColorAt(i,col);});
+  inst.instanceMatrix.needsUpdate=true;if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
+  scene.add(inst);
+  buildingMat=mat;
+}
+let buildingMat=null;
+function makeWindowTexture(){
+  const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d');
+  g.fillStyle='#0a0e14';g.fillRect(0,0,64,128);
+  for(let y=4;y<128;y+=10)for(let x=4;x<64;x+=10){
+    const lit=Math.random()<0.5;g.fillStyle=lit?(Math.random()<.3?'#ffd9a0':'#bcd8ff'):'#10161f';g.fillRect(x,y,6,6);
+  }
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,4);return t;
+}
+
+function buildCrowd(){
+  const N=180;
+  const geo=new THREE.CapsuleGeometry(0.34,1.0,3,6);
+  const mat=new THREE.MeshStandardMaterial({color:0x6b7686,roughness:.8});
+  crowd=new THREE.InstancedMesh(geo,mat,N);
+  const m=new THREE.Matrix4(),col=new THREE.Color();
+  const tones=[0x8390a3,0x6f7c8e,0x9aa6b6,0x5c6878,0xb0a182,0x7a8aa0];
+  for(let i=0;i<N;i++){
+    const x=rnd(-BOUND+10,BOUND-10), z=rnd(-BOUND+10,BOUND-10);
+    crowdData.push({x,z,a:rnd(0,Math.PI*2),sp:rnd(2,5),turn:rnd(-1,1)});
+    m.compose(new THREE.Vector3(x,0.9,z),new THREE.Quaternion(),new THREE.Vector3(1,1,1));crowd.setMatrixAt(i,m);
+    col.setHex(pick(tones));crowd.setColorAt(i,col);
+  }
+  crowd.instanceMatrix.needsUpdate=true;if(crowd.instanceColor)crowd.instanceColor.needsUpdate=true;
+  scene.add(crowd);
+}
+function updateCrowd(dt){
+  if(!crowd)return;const m=new THREE.Matrix4(),q=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0);
+  for(let i=0;i<crowdData.length;i++){const p=crowdData[i];
+    if(chance(0.01))p.a+=rnd(-0.8,0.8);
+    p.x+=Math.cos(p.a)*p.sp*dt;p.z+=Math.sin(p.a)*p.sp*dt;
+    if(p.x<-BOUND+8||p.x>BOUND-8){p.a=Math.PI-p.a;p.x=clamp(p.x,-BOUND+8,BOUND-8);}
+    if(p.z<-BOUND+8||p.z>BOUND-8){p.a=-p.a;p.z=clamp(p.z,-BOUND+8,BOUND-8);}
+    q.setFromAxisAngle(up,-p.a+Math.PI/2);
+    m.compose(new THREE.Vector3(p.x,0.9,p.z),q,new THREE.Vector3(1,1,1));crowd.setMatrixAt(i,m);
+  }
+  crowd.instanceMatrix.needsUpdate=true;
+}
+
+function beacon(color){
+  const g=new THREE.Group();
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,60,8,1,true),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.16,side:THREE.DoubleSide}));
+  beam.position.y=30;g.add(beam);
+  const orb=new THREE.Mesh(new THREE.SphereGeometry(0.9,12,12),new THREE.MeshBasicMaterial({color}));
+  orb.position.y=3.2;g.add(orb);
+  return g;
+}
+function labelSprite(text,color){
+  const c=document.createElement('canvas');c.width=256;c.height=64;const g=c.getContext('2d');
+  g.fillStyle='rgba(10,14,20,0.7)';roundRect(g,4,8,248,46,10);g.fill();
+  g.font='bold 26px Inter,Arial';g.textAlign='center';g.textBaseline='middle';g.fillStyle=color||'#e8c879';
+  g.fillText(text,128,32);
+  const t=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false}));
+  s.scale.set(10,2.5,1);return s;
+}
+function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+
+function addInteractable(x,z,opts){
+  const grp=beacon(opts.color||0xe8c879);grp.position.set(x,0,z);
+  const lab=labelSprite(opts.label,opts.color?('#'+new THREE.Color(opts.color).getHexString()):'#e8c879');
+  lab.position.set(x,7,z);scene.add(lab);
+  scene.add(grp);
+  interactables.push({pos:new THREE.Vector3(x,0,z),range:opts.range||9,prompt:opts.prompt,onUse:opts.onUse,mesh:grp,label:opts.label,kind:opts.kind,data:opts.data,labelSprite:lab});
+}
+function buildLandmarks(){
+  // Apartment (Boroughs) - sleep / end day
+  addInteractable(-150,150,{label:"Seu apartamento",color:0x46d18a,prompt:"dormir e <b>encerrar o dia</b>",kind:"apt",onUse:openSleep});
+  // The Foundry coworking (Grid) - found company + you panel
+  addInteractable(-120,-40,{label:"The Foundry (coworking)",color:0x5aa9f0,prompt:"abrir o <b>painel de negócios</b>",kind:"hq",onUse:openBusiness});
+  // Meridian Exchange (Sterling) - market
+  addInteractable(150,-130,{label:"Meridian Exchange",color:0xe8c879,prompt:"ver o <b>mercado</b>",kind:"market",onUse:()=>openPhone('market')});
+  // Apex Club (Goldhaven) - elite networking
+  addInteractable(30,150,{label:"Apex Club",color:0xb08bf0,prompt:"entrar no <b>Apex Club</b> (networking de elite)",kind:"club",onUse:()=>tryClub()});
+}
+let poiMeshes=[];
+function buildPeopleOfInterest(){
+  // a handful of named NPCs to walk up to and network with
+  const spots=[
+    {x:-110,z:-25,tier:1},{x:-95,z:-55,tier:1},{x:140,z:-110,tier:2},{x:165,z:-150,tier:2},
+    {x:-140,z:130,tier:0},{x:25,z:130,tier:2},{x:120,z:90,tier:0},{x:-30,z:-10,tier:1},
+  ];
+  spots.forEach(sp=>{
+    const person=genPerson(false,sp.tier);
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.36,1.05,4,8),new THREE.MeshStandardMaterial({color:0x223047,emissive:0x14304a,emissiveIntensity:.5,roughness:.6}));
+    body.position.y=0.95;g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.32,12,12),new THREE.MeshStandardMaterial({color:0xd9b48a,roughness:.7}));
+    head.position.y=1.85;g.add(head);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.9,1.15,24),new THREE.MeshBasicMaterial({color:0xe8c879,transparent:true,opacity:.5,side:THREE.DoubleSide}));
+    ring.rotation.x=-Math.PI/2;ring.position.y=0.05;g.add(ring);
+    g.position.set(sp.x,0,sp.z);scene.add(g);
+    const lab=labelSprite(person.name,'#cdd6e2');lab.position.set(sp.x,3.0,sp.z);lab.scale.set(8,2,1);scene.add(lab);
+    interactables.push({pos:new THREE.Vector3(sp.x,0,sp.z),range:7,prompt:"conversar com <b>"+person.name+"</b>",kind:"person",data:person,onUse:()=>openNetwork(person),mesh:g,labelSprite:lab});
+    poiMeshes.push({g,ring}); // ring pulsed via this array; never stored on the (JSON-saved) person object
+  });
+}
+function tryClub(){
+  if(S.rep.public<14&&S.phase<3){return toast("O segurança te barra. Construa sua reputação antes.");}
+  const person=genPerson(false,2);openNetwork(person);
+}
+
+/* ---- day/night ---- */
+const NIGHT={sky:new THREE.Color(0x070b12),fog:new THREE.Color(0x070b12),sun:new THREE.Color(0x2a3550),hemiSky:new THREE.Color(0x24304a),sunI:0.15,hemiI:0.3,emis:1.0};
+const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0x9fc0e8),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.2,hemiI:0.7,emis:0.05};
+const DUSK={sky:new THREE.Color(0x1a1c2e),fog:new THREE.Color(0x241a2e),sun:new THREE.Color(0xff9b5e),hemiSky:new THREE.Color(0x4a3a5a),sunI:0.6,hemiI:0.45,emis:0.6};
+function lerpC(a,b,t,out){out.r=a.r+(b.r-a.r)*t;out.g=a.g+(b.g-a.g)*t;out.b=a.b+(b.b-a.b)*t;return out;}
+let _c=new THREE.Color();
+function updateDayNight(dt){
+  timeOfDay=(timeOfDay+dt*0.004)%1; // slow cycle
+  // map timeOfDay: 0=midnight .25=dawn .5=noon .75=dusk
+  let A,B,t;
+  if(timeOfDay<0.25){A=NIGHT;B=DUSK;t=timeOfDay/0.25;}
+  else if(timeOfDay<0.5){A=DUSK;B=DAY;t=(timeOfDay-0.25)/0.25;}
+  else if(timeOfDay<0.75){A=DAY;B=DUSK;t=(timeOfDay-0.5)/0.25;}
+  else{A=DUSK;B=NIGHT;t=(timeOfDay-0.75)/0.25;}
+  lerpC(A.sky,B.sky,t,_c);scene.background.copy(_c);
+  lerpC(A.fog,B.fog,t,scene.fog.color);
+  lerpC(A.sun,B.sun,t,sun.color);
+  lerpC(A.hemiSky,B.hemiSky,t,hemi.color);
+  sun.intensity=A.sunI+(B.sunI-A.sunI)*t;
+  hemi.intensity=A.hemiI+(B.hemiI-A.hemiI)*t;
+  if(buildingMat)buildingMat.emissiveIntensity=A.emis+(B.emis-A.emis)*t;
+  const ang=timeOfDay*Math.PI*2;sun.position.set(Math.cos(ang)*120,Math.max(8,Math.sin(ang)*140),Math.sin(ang)*60);
+  // clock label
+  const hh=Math.floor(((timeOfDay*24)+6)%24);const ic=hh<6?"🌙":hh<11?"🌅":hh<17?"☀️":hh<20?"🌆":"🌙";
+  $("clock").textContent=ic+" "+String(hh).padStart(2,'0')+":00";
+}
+let _flash=0;function flashSky(){_flash=1;}
+
+/* ---- controls ---- */
+function setupKeys(){
+  addEventListener('keydown',e=>{
+    if(e.code==='KeyW')move.f=true;else if(e.code==='KeyS')move.b=true;
+    else if(e.code==='KeyA')move.l=true;else if(e.code==='KeyD')move.r=true;
+    else if(e.code==='ShiftLeft'||e.code==='ShiftRight')move.sprint=true;
+    else if(e.code==='KeyE'){tryInteract();}
+    else if(e.code==='Tab'){e.preventDefault();togglePhone();}
+  });
+  addEventListener('keyup',e=>{
+    if(e.code==='KeyW')move.f=false;else if(e.code==='KeyS')move.b=false;
+    else if(e.code==='KeyA')move.l=false;else if(e.code==='KeyD')move.r=false;
+    else if(e.code==='ShiftLeft'||e.code==='ShiftRight')move.sprint=false;
+  });
+}
+let nearest=null;
+function updateMovement(dt){
+  if(!controls.isLocked)return;
+  const sp=(move.sprint?22:11)*dt;
+  if(move.f)controls.moveForward(sp);if(move.b)controls.moveForward(-sp);
+  if(move.l)controls.moveRight(-sp);if(move.r)controls.moveRight(sp);
+  const o=camera;
+  o.position.x=clamp(o.position.x,-BOUND+6,BOUND-6);
+  o.position.z=clamp(o.position.z,-BOUND+6,BOUND-6);
+  o.position.y=EYE;
+  // location HUD
+  $("sLoc").textContent=districtAt(o.position.x,o.position.z);
+  // nearest interactable
+  nearest=null;let bd=1e9;
+  for(const it of interactables){const d=it.pos.distanceTo(o.position);if(d<it.range&&d<bd){bd=d;nearest=it;}}
+  const pr=$("prompt");
+  if(nearest&&!scrimOpen()){pr.classList.add('on');pr.innerHTML="<span class='key'>E</span> "+nearest.prompt;}
+  else pr.classList.remove('on');
+}
+function tryInteract(){if(nearest&&!scrimOpen()&&controls.isLocked){nearest.onUse();}}
+
+/* ============================ UI / DOM ============================ */
+function scrimOpen(){return $("scrim").classList.contains('on');}
+function openScrim(){if(controls&&controls.isLocked)controls.unlock();$("scrim").classList.add('on');$("blocker").style.display='none';}
+function close(){$("scrim").classList.remove('on');$("blocker").style.display=document.body.classList.contains('locked')?'none':'flex';}
+function modal(ico,title,bodyHtml,opts){
+  openScrim();
+  $("panel").innerHTML="<div class='top'><div class='ico'>"+ico+"</div><div><div class='k'>Dia "+S.day+"</div><h3>"+title+"</h3></div><div class='x' onclick='__close()'>×</div></div>"+
+    "<div class='body'>"+bodyHtml+(opts?opts.map((o,i)=>"<button class='opt' "+(o.disabled?"disabled":"")+" onclick='__pick("+i+")'><div class='t'>"+o.t+"</div>"+(o.d?"<div class='d'>"+o.d+"</div>":"")+"</button>").join(""):"")+"</div>";
+  _opts=opts||[];
+}
+let _opts=[];
+window.__pick=i=>{const o=_opts[i];if(o&&!o.disabled&&o.fn)o.fn();};
+window.__close=close;
+let toastT;function toast(m){const e=$("toast");e.textContent=m;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),1900);}
+
+/* --- sleep / end day --- */
+function openSleep(){
+  modal("🌙","Encerrar o dia","<p>Você volta para o "+(S.phase>=4?"sua cobertura":"seu apartamento")+". Dormir avança o tempo: empresas faturam, contas vencem, o mercado se move — e a vida acontece.</p><p class='small dim'>Energia será restaurada (menos o que o estresse cobrar).</p>",[
+    {t:"😴 Dormir até amanhã",d:"Avança um dia.",fn:()=>{close();endDay();}},
+    {t:"↩ Ainda não",d:"Voltar à cidade.",fn:close},
+  ]);
+}
+/* --- business panel (HQ / coworking) --- */
+function openBusiness(){
+  let h="<p class='small muted'>Seu painel de comando. Funde empresas, contrate talento, toque a operação.</p>";
+  h+="<button class='opt' onclick='__found()'><div class='t'>🏢 Fundar uma empresa</div><div class='d'>Transforme caixa em uma máquina de receita. Caixa: <b style=\"color:var(--green)\">"+moneyFull(S.cash)+"</b></div></button>";
+  if(S.companies.length) h+="<button class='opt' onclick='__hire()'><div class='t'>🧑‍💼 Entrevistar & contratar</div><div class='d'>Talento puxa receita. (custa energia)</div></button>";
+  h+="<div class='mt'></div>";
+  if(!S.companies.length) h+="<div class='empty'>Você ainda não tem empresas.</div>";
+  else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const rev=coRevenue(co),prof=rev-coCosts(co),val=coValue(co);
+    h+="<div class='row' style='flex-wrap:wrap'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+" <span class='tag'>"+n.name+"</span></div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"/100</div><div class='bar' style='max-width:220px'><i style='width:"+Math.round(co.ops)+"%'></i></div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/dia</div></div>"+
+      "<div style='flex-basis:100%;display:flex;gap:8px;margin-top:9px'><button class='btn ghost small' onclick=\"__op('"+co.id+"')\">📈 Tocar operação (-3⚡)</button><button class='btn ghost small' onclick=\"__sell('"+co.id+"')\">🏷️ Vender</button></div></div>";});
+  modal("💼","Negócios","",null);$("panel").querySelector('.body').innerHTML=h;
+}
+window.__found=()=>{
+  const opts=NICHES.map(n=>{const cost=Math.round(rnd(n.cost[0],n.cost[1]));n._q=cost;
+    return {t:n.ico+" "+n.name+" — "+moneyFull(cost),d:n.desc+(S.cash<cost?"  ⚠ caixa insuficiente":""),disabled:S.cash<cost,fn:()=>foundCompany(n.id,cost)};});
+  opts.push({t:"↩ Voltar",d:"",fn:openBusiness});
+  modal("🏢","Fundar empresa","<p>Escolha um nicho. Cada um joga diferente. Caixa: <b style='color:var(--green)'>"+moneyFull(S.cash)+"</b></p>",opts);
+};
+function foundCompany(id,cost){const n=NICHES.find(x=>x.id===id);S.cash-=cost;
+  const base=rnd(n.base[0],n.base[1])*(0.9+skillAvg()*0.01);
+  const co={id:"co"+Date.now()+ri(0,999),name:coName(n),niche:id,baseRev:base,ops:42,scale:1,employees:[],overhead:Math.round(base*0.3),age:0};
+  S.companies.push(co);S.founded++;S.stress=clamp(S.stress+6,0,100);
+  log("🏢 Você fundou "+co.name+" ("+n.name+"). -"+money(cost));toast("Empresa fundada: "+co.name);checkPhase();save();refreshHUD();openBusiness();}
+function coName(n){const a=["Nova","Apex","Vertex","Lumen","Iron","Atlas","Meridian","Cobalt","Halcyon","Orion","Vanta","Praxis","Zenith"];
+  const b={tech:["Labs","AI","Soft","Stack","Systems"],real:["Group","Works","Industries","Logistics","Build"],soft:["Media","Health","Studio","House"]};
+  return pick(a)+" "+pick(b[n.family]);}
+window.__hire=()=>{
+  if(S.energy<3)return toast("Sem energia para entrevistar hoje.");
+  const cands=[genPerson(true),genPerson(true),genPerson(true)];
+  const opts=cands.map(c=>({t:c.name+" · "+c.role+" ("+c.traits[0]+")",d:"Comp "+c.competence+" · pede "+moneyFull(c.salary)+"/dia",fn:()=>{
+    S.energy-=3;const shave=clamp((S.skills.negotiation-8)*0.006,0,0.25);c.salary=Math.round(c.salary*(1-shave));
+    let best=S.companies[0],bf=-1;S.companies.forEach(x=>{const f=roleFit(c,NICHES.find(n=>n.id===x.niche));if(f>bf){bf=f;best=x;}});
+    best.employees.push(c);S.hires++;log("Você contratou "+c.name+" ("+c.role+") para a "+best.name+".");toast("Contratado: "+c.name);checkPhase();save();refreshHUD();openBusiness();}}));
+  opts.push({t:"↩ Voltar",d:"",fn:openBusiness});
+  modal("🧑‍💼","Entrevistas","<p>Três candidatos à sua frente. Competência puxa receita; salário puxa custo; ambição decide se ficam.</p>",opts);
+};
+window.__op=id=>{const co=S.companies.find(c=>c.id===id);if(!co)return;if(S.energy<3)return toast("Sem energia hoje.");
+  S.energy-=3;const gain=ri(8,16)+Math.round((skillAvg()-8)*0.5);co.ops=clamp(co.ops+gain,0,100);S.stress=clamp(S.stress+3,0,100);
+  S.skills.leadership=clamp(S.skills.leadership+1,0,100);log("Você tocou a operação da "+co.name+". Op +"+gain+".");toast("Operação melhorada");save();refreshHUD();openBusiness();};
+window.__sell=id=>{const co=S.companies.find(c=>c.id===id);if(!co)return;const v=coValue(co);
+  modal("🏷️","Vender "+co.name,"<p>Comprador-IA avalia em <b style='color:var(--gold)'>"+moneyFull(v)+"</b>.</p>",[
+    {t:"✅ Vender por "+moneyFull(v),d:"Exit.",fn:()=>{S.cash+=v;S.companies=S.companies.filter(c=>c.id!==id);log("Você vendeu a "+co.name+" por "+money(v)+".");toast("Exit: "+money(v));checkPhase();save();refreshHUD();openBusiness();}},
+    {t:"↩ Manter",d:"",fn:openBusiness}]);};
+
+/* --- networking --- */
+function openNetwork(p){
+  const kind=p.kind==="investor"?"💰 Investidor":p.kind==="talent"?"🧠 Talento":"🤝 Cliente";
+  let b="<p class='small muted'>"+p.role+" · "+p.age+" anos · patrimônio aprox. "+money(p.wealth)+" · "+kind+"</p>";
+  b+="<p><span class='tag'>"+p.traits[0]+"</span> <span class='tag'>"+p.traits[1]+"</span> Relação: <b style='color:var(--gold)'>"+relLabel(p.rel)+"</b> ("+Math.round(p.rel)+"/100)</p>";
+  if(p.memory&&p.memory.length)b+="<p class='small dim'>Lembra de você por: "+p.memory.map(m=>"“"+m+"”").join(" · ")+"</p>";
+  const opts=[{t:"☕ Cultivar relação",d:"+relação (custa energia).",disabled:S.energy<2,fn:()=>{S.energy-=2;const g=ri(8,16)+Math.round((S.skills.charisma-8)*0.4);p.rel=clamp(p.rel+g,0,100);remember(p,"Você investiu tempo na relação.");log("Você cultivou a relação com "+p.name+". (+"+g+")");toast("Relação fortalecida");save();refreshHUD();openNetwork(p);}}];
+  if(p.kind==="investor")opts.push({t:"💰 Pedir investimento",d:p.rel>=45?"Confia o bastante.":"Relação fraca — pode recusar.",fn:()=>{if(p.rel<45){p.rel=clamp(p.rel-8,0,100);remember(p,"Você pediu dinheiro cedo demais.");log(p.name+" recuou. “Vamos nos conhecer melhor.”");toast("Recusado");return openNetwork(p);}if(p._inv)return toast("Já investiu recentemente.");const amt=Math.round(p.wealth*rnd(.06,.16));S.cash+=amt;p._inv=true;p.rel=clamp(p.rel-5,0,100);S.rep.market=clamp(S.rep.market+2,0,100);remember(p,"Apostou capital em você.");log("💰 "+p.name+" investiu "+money(amt)+" em você.");toast("Investimento: "+money(amt));checkPhase();save();refreshHUD();openNetwork(p);}});
+  if(p.kind==="talent")opts.push({t:"🧑‍💼 Convidar para a empresa",d:!S.companies.length?"Funde uma empresa antes.":p.rel>=40?"Topa entrar.":"Ainda não confia.",disabled:!S.companies.length,fn:()=>{if(p.rel<40){p.rel=clamp(p.rel-5,0,100);log(p.name+" declinou o convite.");return openNetwork(p);}p.salary=Math.round((p.wealth*0.0006+80));p.competence=p.competence||ri(55,85);S.companies[0].employees.push(p);S.hires++;remember(p,"Entrou na sua empresa.");log("🧠 "+p.name+" entrou para a "+S.companies[0].name+".");toast(p.name+" entrou no time");checkPhase();save();refreshHUD();close();}});
+  if(p.kind==="client")opts.push({t:"🤝 Fechar contrato",d:!S.companies.length?"Funde uma empresa antes.":p.rel>=40?"Vira cliente.":"Precisa de mais relação.",disabled:!S.companies.length,fn:()=>{if(p.rel<40){log(p.name+" ainda não fecha com você.");return openNetwork(p);}const co=pick(S.companies);co.scale*=rnd(1.1,1.28);p.rel=clamp(p.rel+5,0,100);remember(p,"Virou cliente do seu negócio.");log("🤝 "+p.name+" fechou contrato com a "+co.name+".");toast("Novo cliente!");checkPhase();save();refreshHUD();close();}});
+  opts.push({t:"↩ Encerrar conversa",d:"",fn:close});
+  modal(p.kind==="investor"?"💰":p.kind==="talent"?"🧠":"🤝",p.name,b,opts);
+}
+
+/* --- phone (MeridianOS) --- */
+let phoneTab='stats';
+function togglePhone(){if(scrimOpen())close();else openPhone(phoneTab);}
+function openPhone(tab){phoneTab=tab||phoneTab;openScrim();
+  const tabs=[["stats","Você"],["empire","Império"],["market","Mercado"],["rede","Rede"],["feed","Feed"]];
+  let h="<div class='top'><div class='ico'>📱</div><div><div class='k'>MeridianOS · Dia "+S.day+"</div><h3>"+(S.name||"Você")+"</h3></div><div class='x' onclick='__close()'>×</div></div>";
+  h+="<div class='tabs'>"+tabs.map(t=>"<div class='tab"+(phoneTab===t[0]?" on":"")+"' onclick=\"__ptab('"+t[0]+"')\">"+t[1]+"</div>").join("")+"</div>";
+  h+="<div class='body' id='ptab'></div>";
+  $("panel").innerHTML=h;renderPhoneTab();
+}
+window.__ptab=t=>{openPhone(t);};
+function renderPhoneTab(){const el=$("ptab");if(!el)return;let h="";
+  if(phoneTab==='stats'){
+    h+="<div class='kpis'>"+kpi("Patrimônio",money(netWorth()),"var(--gold)")+kpi("Caixa",money(S.cash),S.cash<0?"var(--red)":"var(--green)")+kpi("Empresas",S.companies.length)+kpi("Contatos",S.contacts.length)+"</div>";
+    h+="<div class='small dim' style='margin:4px 0 8px'>Habilidades</div>";
+    [["negotiation","Negociação"],["charisma","Carisma"],["finance","Acumen"],["leadership","Liderança"]].forEach(([k,l])=>h+="<div style='margin-bottom:8px'><div class='small' style='display:flex;justify-content:space-between'><span>"+l+"</span><span class='dim'>"+Math.round(S.skills[k])+"</span></div><div class='bar'><i style='width:"+S.skills[k]+"%'></i></div></div>");
+    h+="<div class='small dim' style='margin:8px 0'>Reputação</div>";
+    [["market","Mercado"],["talent","Como chefe"],["public","Pública"]].forEach(([k,l])=>h+="<div style='margin-bottom:8px'><div class='small' style='display:flex;justify-content:space-between'><span>"+l+"</span><span class='dim'>"+Math.round(S.rep[k])+"</span></div><div class='bar'><i style='width:"+S.rep[k]+"%;background:linear-gradient(90deg,#5aa9f0,#7fc0ff)'></i></div></div>");
+  } else if(phoneTab==='empire'){
+    if(!S.companies.length)h="<div class='empty'>Sem empresas. Vá ao The Foundry (marcador azul) para fundar uma.</div>";
+    else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const prof=coProfit(co),val=coValue(co);
+      h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+"</div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"</div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/d</div></div></div>";});
+  } else if(phoneTab==='market'){
+    const m=S.market;h+="<div class='kpis'>"+kpi("Ciclo",m.cycle.toUpperCase(),m.cycle==="recessão"?"var(--red)":m.cycle==="aquecido"?"var(--green)":"var(--gold)")+kpi("Multiplicador","×"+m.mult.toFixed(2))+kpi("Juros",m.rate.toFixed(1)+"%")+kpi("Humor",m.mood>.2?"otimista":m.mood<-.2?"pessimista":"neutro")+"</div>";
+    h+="<div class='small muted'>O mercado vive sozinho. Recessão derruba receita e valuations; boom premia coragem.</div>";
+  } else if(phoneTab==='rede'){
+    if(!S.contacts.length)h="<div class='empty'>Você ainda não converteu ninguém em contato fixo.<br>Aborde as pessoas com anel dourado na cidade (tecla E).</div>";
+    else S.contacts.forEach((c,i)=>h+="<div class='row'><div class='av'>"+c.name[0]+"</div><div class='info'><div class='n'>"+c.name+"</div><div class='m'>"+c.role+" · "+relLabel(c.rel)+"</div></div><div class='side'><div class='big'>"+Math.round(c.rel)+"</div></div></div>");
+  } else if(phoneTab==='feed'){
+    h=LOG.length?LOG.map(l=>"<div style='font-size:13px;padding:7px 0;border-bottom:1px dashed #1d2530'><span class='dim small'>D"+l.d+"</span> "+l.h+"</div>").join(""):"<div class='empty'>Sem novidades ainda.</div>";
+  }
+  el.innerHTML=h;
+}
+function kpi(k,v,c){return "<div class='kpi'><div class='k'>"+k+"</div><div class='v' style='color:"+(c||"var(--txt)")+"'>"+v+"</div></div>";}
+
+/* when networking with a world NPC, also store as contact once befriended */
+const _origRemember=remember;
+/* keep contacts list synced: add to contacts if rel>=35 and not present */
+function syncContacts(){interactables.forEach(it=>{if(it.kind==='person'&&it.data&&it.data.rel>=35&&!S.contacts.includes(it.data))S.contacts.push(it.data);});}
+
+/* ---- HUD ---- */
+function refreshHUD(){
+  syncContacts();
+  $("phase").textContent="Fase "+S.phase+" · "+S.phaseName;
+  $("sDay").textContent=S.day;
+  const c=$("sCash");c.textContent=money(S.cash);c.className="v cash"+(S.cash<0?" neg":"");
+  $("sNet").textContent=money(netWorth());
+  $("sEnergy").style.width=(S.energy/S.maxEnergy*100)+"%";
+}
+
+/* ---- end screen ---- */
+function showEnd(){
+  const won=S.won,n=netWorth();
+  const rank=n>=1e9?"TITÃ GLOBAL":n>=150e6?"MAGNATA":n>=20e6?"FIGURA PÚBLICA":n>=1.2e6?"EMPRESÁRIO DE SUCESSO":n>=60000?"FUNDADOR PROMISSOR":"SONHADOR";
+  openScrim();
+  $("panel").innerHTML="<div class='top'><div class='ico'>"+(won?"🏛️":"💀")+"</div><div><div class='k'>Dia "+S.day+"</div><h3>"+(won?"Um Legado Construído":"Fim de Jogo")+"</h3></div></div>"+
+    "<div class='body center'><p>"+(won?"Você chegou ao topo de Meridian. Seu nome vai ficar.":"O império ruiu. Mas todo magnata quebra ao menos uma vez. Recomece.")+"</p><div class='legacyrank'>"+rank+"</div>"+
+    "<div class='kpis mt'>"+kpi("Patrimônio final",money(n),"var(--gold)")+kpi("Pico",money(S.peakNet),"var(--gold)")+kpi("Dias",S.day)+kpi("Empresas fundadas",S.founded)+"</div>"+
+    "<button class='opt' onclick='__restart()'><div class='t'>🔄 Nova jornada</div><div class='d'>Começar de novo, do apartamento apertado.</div></button></div>";
+}
+window.__restart=()=>{try{localStorage.removeItem(SAVE_KEY);}catch(e){}location.reload();};
+
+/* ============================ MAIN LOOP ============================ */
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05);
+  updateMovement(dt);updateCrowd(dt);updateDayNight(dt);
+  // pulse POI rings
+  const t=performance.now()*0.003;poiMeshes.forEach((p,i)=>{p.ring.material.opacity=0.3+0.25*Math.sin(t+i);});
+  if(_flash>0){_flash=Math.max(0,_flash-dt*1.5);hemi.intensity+=_flash*0.8;}
+  renderer.render(scene,camera);
+}
+
+/* ============================ BOOT ============================ */
+function boot(){
+  const saved=load();
+  if(saved&&!saved.over){S=saved;S.name=S.name||"Você";}
+  else{newGame();S.name="Você";}
+  initThree();
+  refreshHUD();
+  animate();
+  window.__mogulReady=true;
+  var f=$("fatal");if(f)f.style.display='none'; // world loaded — clear any timeout fallback overlay
+}
+boot();
+
+}catch(err){
+  window.__mogulReady=true;
+  showFatal("Ocorreu um erro ao montar o mundo 3D.", (err&&err.message)||String(err));
+  console.error(err);
+}
+</script>
+</body>
+</html>
