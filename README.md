@@ -9,6 +9,18 @@
 
 ---
 
+## 🎮 Jogar agora (protótipo jogável)
+
+Já existe um **protótipo jogável** da fatia vertical — o "feel + economy prototype" do Ano 1 do [plano de produção](docs/11-PRODUCTION-PLAN.md). Roda no navegador, **sem instalar nada**:
+
+> **▶ Abra [`game/index.html`](game/index.html) no seu navegador** (baixe o arquivo e dê duplo-clique, ou abra direto).
+
+O que dá para fazer agora: começar falido nos Boroughs, sobreviver de freelas, **fundar empresas** (10 setores, cada um com economia própria), **contratar agentes** com personalidade que pedem aumento / abrem concorrentes, **fazer networking** (café → coworking → Apex Club), enfrentar uma **economia viva** (ciclos de boom/recessão, juros), comprar **status** (apartamento, carro) que muda como o mundo te trata, e subir as **5 fases** de Sobrevivência a Legado. Salva automático. Veja [`game/README.md`](game/README.md) para detalhes.
+
+*A economia foi balanceada por simulação headless (centenas de dias simulados) e as rotas de UI validadas por testes automatizados — conforme a disciplina de [de-risk early](docs/11-PRODUCTION-PLAN.md).*
+
+---
+
 ## O que é MOGUL
 
 **MOGUL** é um simulador de vida empresarial em mundo aberto, single-player no núcleo e com uma camada online persistente, construído na **Unreal Engine 5.6**. O jogador não opera planilhas: ele encarna um ser humano que parte de um apartamento minúsculo e de um computador velho e, ao longo de décadas de tempo de jogo, ascende — ou fracassa — na tentativa de construir um império de negócios em **Meridian City**, uma metrópole global viva.
