@@ -1,0 +1,16 @@
+# Unreal Engine generated/derived — never commit these.
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+*.VC.db
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+
+# Keep: Source/, Config/, Content/ (assets), *.uproject
