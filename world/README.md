@@ -14,7 +14,9 @@
 | `Shift` | Correr |
 | Mouse | Olhar |
 | `E` | Interagir (quando o aviso aparece) / entrar e sair do carro |
+| `V` | Alternar câmera **1ª ↔ 3ª pessoa** (estilo GTA) |
 | `Tab` | Abrir/fechar o celular (MeridianOS) |
+| `M` | Ligar/desligar o som |
 | `Esc` | Liberar o cursor |
 | `[` `]` | Ajustar **exposição** (claro/escuro) ao vivo |
 | `-` `=` | Ajustar **bloom** (brilho das luzes) ao vivo |
@@ -62,6 +64,13 @@ Isto é uma **fatia 3D estilizada em tempo real (WebGL/Three.js)** — para voc�
 - **Performance:** multidão e prédios via `InstancedMesh`; fog para profundidade; ciclo dia/noite por interpolação de paletas. Roda em hardware modesto.
 - **Robustez:** detector de falha de carregamento (offline/CDN) e overlay de erro — você nunca fica numa tela preta sem explicação.
 - **Economia:** mesma lógica balanceada do protótipo 2D; validada por simulação headless.
+
+## ✨ Inspiração GTA (PC)
+- **Câmera em 3ª pessoa** com avatar visível (tecla `V` alterna com 1ª pessoa) — a "cara" de GTA
+- **Objetivos / waypoint**: sempre há um alvo (blip **amarelo**) ligado aos negócios — vá até lá (a pé ou de carro) e ganhe caixa/reputação; ao concluir, surge o próximo (o loop "vá até o blip")
+- **Radar circular** estilo GTA que **gira com você**, com blips (objetivo, carro, marcos)
+- **Áudio** sintetizado: ambiente da cidade, **motor do carro** (acelera junto), bipes (tecla `M` muda)
+- **Mais vida**: árvores nas calçadas, pedestres, trânsito, postes — tudo brilhando com o bloom à noite
 
 ## Já implementado neste mundo
 - ✅ **Interiores de escritório** que você percorre e que **crescem com a empresa** ([08-Assets](../docs/08-ASSETS-SYSTEMS.md)).
