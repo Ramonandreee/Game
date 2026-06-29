@@ -1,0 +1,13 @@
+{
+  "name": "MOGUL — Business Empire Life Simulator",
+  "short_name": "MOGUL",
+  "description": "Simulador de vida empresarial — protótipo de sistemas.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
