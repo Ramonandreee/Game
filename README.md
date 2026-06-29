@@ -70,6 +70,7 @@ Esta especificação é organizada como um documento interno de estúdio AAA. Ca
 |---|-----------|-------|
 | 09 | [UX/UI Design](docs/09-UX-UI.md) | Filosofia de interface diegética, fluxos de UX, acessibilidade |
 | 10 | [Technical Architecture](docs/10-TECHNICAL-ARCHITECTURE.md) | Engine, dados, backend, multiplayer, save, content pipeline, escalabilidade |
+| 13 | [Art Direction & Visual Identity](docs/13-ART-DIRECTION.md) | Identidade visual, design system (UI), direção de arte 3D fotorrealista, performance |
 
 ### Parte IV — Produção & Negócio
 | # | Documento | Cobre |
