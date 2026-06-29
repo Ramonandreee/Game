@@ -13,9 +13,14 @@
 | `W A S D` | Andar |
 | `Shift` | Correr |
 | Mouse | Olhar |
-| `E` | Interagir (quando o aviso aparece) |
+| `E` | Interagir (quando o aviso aparece) / entrar e sair do carro |
 | `Tab` | Abrir/fechar o celular (MeridianOS) |
 | `Esc` | Liberar o cursor |
+| `[` `]` | Ajustar **exposição** (claro/escuro) ao vivo |
+| `-` `=` | Ajustar **bloom** (brilho das luzes) ao vivo |
+| `B` | Ligar/desligar bloom |
+
+> 🎨 **Visual realista:** tone mapping cinematográfico (ACES), **bloom** (janelas e luzes que brilham de verdade), **reflexos** via environment map (carro/vidro/asfalto), névoa atmosférica e **postes de luz**. Use as teclas `[ ] - = B` para calibrar o look ao seu gosto. Se o bloom não for suportado, o jogo cai automaticamente no render normal (sem travar).
 
 > ⚠️ **Precisa de internet na primeira vez** — o mundo carrega a engine **Three.js** de um CDN. Se abrir offline, aparece um aviso. (O simulador em [`../game/index.html`](../game/index.html) roda 100% offline.)
 

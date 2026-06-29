@@ -121,7 +121,7 @@
 
 <div class="ui" id="prompt"></div>
 <div class="ui" id="hint">
-  <span class="key">W A S D</span> andar/dirigir &nbsp; <span class="key">Shift</span> correr &nbsp; <span class="key">Mouse</span> olhar &nbsp; <span class="key">E</span> interagir / entrar e sair do carro &nbsp; <span class="key">Tab</span> celular &nbsp; <span class="key">Esc</span> cursor
+  <span class="key">W A S D</span> andar/dirigir &nbsp; <span class="key">Shift</span> correr &nbsp; <span class="key">E</span> interagir/carro &nbsp; <span class="key">Tab</span> celular &nbsp; <span class="key">Esc</span> cursor &nbsp;·&nbsp; <span class="key">[ ]</span> exposição &nbsp; <span class="key">- =</span> bloom &nbsp; <span class="key">B</span> liga/desliga
 </div>
 <canvas class="ui" id="map"></canvas>
 
@@ -166,6 +166,10 @@ setTimeout(function(){
 <script type="module">
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 try{
 /* ===================================================================== *
@@ -319,6 +323,8 @@ const DISTRICTS=[
 function districtAt(x,z){for(const d of DISTRICTS)if(d.test(x,z))return d.n;return "Midtown";}
 
 let renderer,scene,camera,controls,clock;
+let composer=null,bloomPass=null,headlightL=null,headlightR=null;
+let exposure=1.15, bloomStrength=0.85;
 let interactables=[];      // {pos:Vector3, range, label, prompt, onUse, mesh}
 let crowd=null, crowdData=[];
 let sun, hemi, skyMat;
@@ -330,10 +336,12 @@ function initThree(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(innerWidth,innerHeight);
   renderer.shadowMap.enabled=false;
+  // cinematic output: filmic tone mapping + correct colour space
+  try{ renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=exposure; }catch(e){}
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x0b1018);
-  scene.fog=new THREE.Fog(0x0b1018,60,520);
-  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.1,1400);
+  scene.fog=new THREE.FogExp2(0x0b1018,0.0036); // atmospheric depth
+  camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,1600);
   camera.position.set(-150,EYE,150);
   clock=new THREE.Clock();
 
@@ -350,14 +358,16 @@ function initThree(){
   try{buildBillboards();}catch(e){console.error('billboards',e);}
   try{buildOfficeShell();}catch(e){console.error('office',e);}
   try{buildCar();}catch(e){console.error('car',e);}
+  try{buildStreetLights();}catch(e){console.error('streetlights',e);}
   try{initMinimap();}catch(e){console.error('minimap',e);}
+  try{setupGraphics();}catch(e){console.error('graphics',e);composer=null;}
 
   controls=new PointerLockControls(camera,document.body);
   controls.addEventListener('lock',()=>{document.body.classList.add('locked');$("blocker").style.display='none';});
   controls.addEventListener('unlock',()=>{document.body.classList.remove('locked');if(!scrimOpen()&&!isDriving)$("blocker").style.display='flex';});
   // PointerLockControls moves the camera directly (this.object===camera); no need to add it to the scene.
 
-  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight);});
   $("blocker").addEventListener('click',()=>{if(!scrimOpen())controls.lock();});
   setupKeys();
 }
@@ -404,12 +414,23 @@ function buildCity(){
 }
 let buildingMat=null;
 function makeWindowTexture(){
-  const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d');
-  g.fillStyle='#0a0e14';g.fillRect(0,0,64,128);
-  for(let y=4;y<128;y+=10)for(let x=4;x<64;x+=10){
-    const lit=Math.random()<0.5;g.fillStyle=lit?(Math.random()<.3?'#ffd9a0':'#bcd8ff'):'#10161f';g.fillRect(x,y,6,6);
+  const c=document.createElement('canvas');c.width=128;c.height=256;const g=c.getContext('2d');
+  g.fillStyle='#070a0f';g.fillRect(0,0,128,256);
+  const warm=['#ffd9a0','#ffce86','#ffb866'], cool=['#bcd8ff','#9fc4ff','#d6e6ff'];
+  for(let y=6;y<256;y+=13){
+    const floorDark=Math.random()<0.18;            // some floors mostly dark
+    for(let x=6;x<128;x+=11){
+      const r=Math.random();
+      if(floorDark? r<0.12 : r<0.55){
+        const warmLit=Math.random()<0.45;
+        g.fillStyle=(warmLit?warm:cool)[Math.floor(Math.random()*3)];
+        g.globalAlpha=0.55+Math.random()*0.45;     // brightness variation
+        g.fillRect(x,y,7,8);
+      } else { g.fillStyle='#0c1118'; g.globalAlpha=1; g.fillRect(x,y,7,8); }
+    }
   }
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,4);return t;
+  g.globalAlpha=1;
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,6);return t;
 }
 
 function buildCrowd(){
@@ -627,12 +648,22 @@ function updateMinimap(){
 /* ---- drivable car ---- */
 function buildCar(){
   car={pos:new THREE.Vector3(-150,0,140),heading:-Math.PI/2,speed:0,group:new THREE.Group()};
-  const body=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.9,4.6),new THREE.MeshStandardMaterial({color:0x12151b,metalness:.6,roughness:.3,emissive:0x070707}));
-  body.position.y=0.7; car.group.add(body);
-  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.7,2.2),new THREE.MeshStandardMaterial({color:0x1a2233,metalness:.4,roughness:.2,emissive:0x16223a,emissiveIntensity:.5}));
-  cabin.position.set(0,1.25,-0.2); car.group.add(cabin);
-  const wmat=new THREE.MeshStandardMaterial({color:0x0a0a0a});
-  [[-1,1.5],[1,1.5],[-1,-1.5],[1,-1.5]].forEach(([wx,wz])=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.4,12),wmat);w.rotation.z=Math.PI/2;w.position.set(wx,0.5,wz);car.group.add(w);});
+  const paint=new THREE.MeshStandardMaterial({color:0x1c2c4a,metalness:.95,roughness:.32,envMapIntensity:1.25}); // reflective car paint
+  const lower=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.7,4.7),paint); lower.position.y=0.62; car.group.add(lower);
+  const hood=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.5,4.2),paint); hood.position.y=1.05; car.group.add(hood);
+  const glass=new THREE.MeshStandardMaterial({color:0x0a1020,metalness:.2,roughness:.05,emissive:0x101a30,emissiveIntensity:.4,envMapIntensity:1.6});
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.85,0.66,2.0),glass); cabin.position.set(0,1.42,-0.15); car.group.add(cabin);
+  // head/tail lights (emissive -> bloom glow)
+  const hl=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xfff2d0,emissiveIntensity:4});
+  const tl=new THREE.MeshStandardMaterial({color:0xff3018,emissive:0xff2008,emissiveIntensity:3.5});
+  [[-0.7,2.38],[0.7,2.38]].forEach(([x,z])=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.28,0.12),hl);l.position.set(x,0.7,z);car.group.add(l);});
+  [[-0.75,-2.38],[0.75,-2.38]].forEach(([x,z])=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.26,0.12),tl);l.position.set(x,0.78,z);car.group.add(l);});
+  const wmat=new THREE.MeshStandardMaterial({color:0x070707,roughness:.7,metalness:.3});
+  const rim=new THREE.MeshStandardMaterial({color:0x556070,metalness:.9,roughness:.3,envMapIntensity:1.2});
+  [[-1.02,1.55],[1.02,1.55],[-1.02,-1.55],[1.02,-1.55]].forEach(([wx,wz])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.52,0.52,0.34,16),wmat);w.rotation.z=Math.PI/2;w.position.set(wx,0.5,wz);car.group.add(w);
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.36,10),rim);r.rotation.z=Math.PI/2;r.position.set(wx,0.5,wz);car.group.add(r);
+  });
   car.group.position.copy(car.pos); scene.add(car.group);
   addInteractable(car.pos.x,car.pos.z,{label:"Seu carro",color:0xf0685f,prompt:"<b>entrar no carro</b> (dirigir)",kind:"car",onUse:enterCar});
   carIx=interactables[interactables.length-1];
@@ -657,15 +688,54 @@ function updateDriving(dt){
   nearest=null;
 }
 
+/* ---- graphics: environment reflections + bloom + street lights ---- */
+function makeEnvGradient(){
+  const c=document.createElement('canvas'); c.width=512; c.height=256; const g=c.getContext('2d');
+  const grd=g.createLinearGradient(0,0,0,256);
+  grd.addColorStop(0,'#0a0e1a'); grd.addColorStop(0.45,'#1a1830'); grd.addColorStop(0.60,'#3a2a24'); grd.addColorStop(0.75,'#241a20'); grd.addColorStop(1,'#070709');
+  g.fillStyle=grd; g.fillRect(0,0,512,256);
+  for(let i=0;i<26;i++){ g.fillStyle='rgba(255,180,90,'+(0.02+Math.random()*0.05)+')'; const x=Math.random()*512,y=148+Math.random()*44,r=10+Math.random()*42; g.beginPath();g.arc(x,y,r,0,7);g.fill(); }
+  return new THREE.CanvasTexture(c);
+}
+function setupGraphics(){
+  // environment map for subtle, realistic reflections (car paint, glass, wet road)
+  try{
+    const pmrem=new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
+    const eqt=makeEnvGradient(); eqt.mapping=THREE.EquirectangularReflectionMapping;
+    scene.environment=pmrem.fromEquirectangular(eqt).texture;
+    eqt.dispose(); pmrem.dispose();
+    if(buildingMat)buildingMat.envMapIntensity=0.22;
+  }catch(e){console.error('env',e);}
+  // bloom — the single biggest "alive at night" win (neon windows/lights glow)
+  composer=new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),bloomStrength,0.5,0.12);
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
+  composer.setSize(innerWidth,innerHeight);
+}
+function buildStreetLights(){
+  const postMat=new THREE.MeshStandardMaterial({color:0x12161c,roughness:.85,metalness:.3});
+  const orbMat=new THREE.MeshStandardMaterial({color:0xffe6b8,emissive:0xffb060,emissiveIntensity:2.6,roughness:.4});
+  const spots=[]; for(let i=-7;i<=7;i++)for(let j=-7;j<=7;j++){ if((i+j)%2!==0)continue; spots.push([i*40+10,j*40+10]); }
+  const N=spots.length, m=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(1,1,1);
+  const posts=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22,0.3,7,6),postMat,N);
+  const orbs=new THREE.InstancedMesh(new THREE.SphereGeometry(0.45,8,8),orbMat,N);
+  spots.forEach((p,i)=>{ m.compose(new THREE.Vector3(p[0],3.5,p[1]),q,s);posts.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p[0],7.1,p[1]),q,s);orbs.setMatrixAt(i,m); });
+  posts.instanceMatrix.needsUpdate=true; orbs.instanceMatrix.needsUpdate=true;
+  scene.add(posts); scene.add(orbs);
+}
+
 function tryClub(){
   if(S.rep.public<14&&S.phase<3){return toast("O segurança te barra. Construa sua reputação antes.");}
   const person=genPerson(false,2);openNetwork(person);
 }
 
 /* ---- day/night ---- */
-const NIGHT={sky:new THREE.Color(0x070b12),fog:new THREE.Color(0x070b12),sun:new THREE.Color(0x2a3550),hemiSky:new THREE.Color(0x24304a),sunI:0.15,hemiI:0.3,emis:1.0};
-const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0x9fc0e8),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.2,hemiI:0.7,emis:0.05};
-const DUSK={sky:new THREE.Color(0x1a1c2e),fog:new THREE.Color(0x241a2e),sun:new THREE.Color(0xff9b5e),hemiSky:new THREE.Color(0x4a3a5a),sunI:0.6,hemiI:0.45,emis:0.6};
+const NIGHT={sky:new THREE.Color(0x05080f),fog:new THREE.Color(0x05080f),sun:new THREE.Color(0x2a3550),hemiSky:new THREE.Color(0x1a2440),sunI:0.12,hemiI:0.28,emis:1.7};
+const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0x9fc0e8),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.25,hemiI:0.7,emis:0.04};
+const DUSK={sky:new THREE.Color(0x171526),fog:new THREE.Color(0x241a2e),sun:new THREE.Color(0xff8a4e),hemiSky:new THREE.Color(0x453858),sunI:0.55,hemiI:0.42,emis:0.95};
 function lerpC(a,b,t,out){out.r=a.r+(b.r-a.r)*t;out.g=a.g+(b.g-a.g)*t;out.b=a.b+(b.b-a.b)*t;return out;}
 let _c=new THREE.Color();
 function updateDayNight(dt){
@@ -698,6 +768,12 @@ function setupKeys(){
     else if(e.code==='ShiftLeft'||e.code==='ShiftRight')move.sprint=true;
     else if(e.code==='KeyE'){ if(isDriving)exitCar(); else tryInteract(); }
     else if(e.code==='Tab'){e.preventDefault(); if(!isDriving)togglePhone();}
+    // live graphics tuner (so the look can be dialled in)
+    else if(e.code==='BracketRight'){exposure=clamp(exposure+0.05,0.3,2.5);if(renderer)renderer.toneMappingExposure=exposure;toast('Exposição '+exposure.toFixed(2));}
+    else if(e.code==='BracketLeft'){exposure=clamp(exposure-0.05,0.3,2.5);if(renderer)renderer.toneMappingExposure=exposure;toast('Exposição '+exposure.toFixed(2));}
+    else if(e.code==='Equal'){bloomStrength=clamp(bloomStrength+0.1,0,3);if(bloomPass)bloomPass.strength=bloomStrength;toast('Bloom '+bloomStrength.toFixed(2));}
+    else if(e.code==='Minus'){bloomStrength=clamp(bloomStrength-0.1,0,3);if(bloomPass)bloomPass.strength=bloomStrength;toast('Bloom '+bloomStrength.toFixed(2));}
+    else if(e.code==='KeyB'){ if(composer){composer=null;bloomPass=null;toast('Bloom OFF');} else {try{setupGraphics();toast('Bloom ON');}catch(_){}} }
   });
   addEventListener('keyup',e=>{
     if(e.code==='KeyW')move.f=false;else if(e.code==='KeyS')move.b=false;
@@ -884,7 +960,8 @@ function animate(){
     const t=performance.now()*0.003; for(let i=0;i<poiMeshes.length;i++){poiMeshes[i].ring.material.opacity=0.3+0.25*Math.sin(t+i);}
     if(_flash>0){_flash=Math.max(0,_flash-dt*1.5);hemi.intensity+=_flash*0.8;}
   }catch(e){ if(!animate._warned){console.error('frame error',e);animate._warned=true;} if(isDriving){try{exitCar();}catch(_){}} }
-  renderer.render(scene,camera);
+  if(composer){ try{ composer.render(); }catch(e){ if(!animate._cwarn){console.error('composer render failed, falling back',e);animate._cwarn=true;} composer=null; renderer.render(scene,camera); } }
+  else renderer.render(scene,camera);
 }
 
 /* ============================ BOOT ============================ */
