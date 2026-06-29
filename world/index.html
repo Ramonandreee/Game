@@ -2,7 +2,14 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MOGUL">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>MOGUL — Meridian City (3D)</title>
 <style>
   :root{
@@ -49,6 +56,24 @@
   #map{right:14px;top:74px;width:160px;height:160px;border-radius:12px;border:1px solid rgba(232,200,121,.35);background:rgba(8,11,16,.4)}
   @media(max-width:640px){#map{width:108px;height:108px}}
   body.driving{cursor:none}
+  /* ---- mobile / touch / PWA ---- */
+  html,body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+  #c{touch-action:none}
+  #hud{padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right));padding-top:calc(10px + env(safe-area-inset-top))}
+  #map{right:calc(14px + env(safe-area-inset-right))}
+  #hint{left:calc(14px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
+  body.touch #hint{display:none}
+  body.touch #cross{opacity:0!important}
+  #touch{position:fixed;inset:0;z-index:15;pointer-events:none;display:none}
+  #stick{position:fixed;left:calc(24px + env(safe-area-inset-left));bottom:calc(24px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(18,24,32,.32);border:1px solid rgba(232,200,121,.22);pointer-events:auto;touch-action:none}
+  #knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(232,200,121,.32);border:1px solid rgba(232,200,121,.5)}
+  #tbtns{position:fixed;right:calc(22px + env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));display:flex;flex-direction:column-reverse;gap:14px;align-items:center;pointer-events:none}
+  #tbtns button{pointer-events:auto;width:64px;height:64px;border-radius:50%;border:1px solid rgba(232,200,121,.38);background:rgba(18,24,32,.55);color:var(--gold);font-weight:800;font-size:13px;font-family:inherit;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);touch-action:none}
+  #tbtns button:active{transform:scale(.93)}
+  #tbtns #btnE{width:80px;height:80px;font-size:15px;background:rgba(44,32,12,.62);border-color:var(--gold2);display:none}
+  #tbtns button.on{background:rgba(232,200,121,.32);color:#150f02}
+  #rotate{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;text-align:center;background:#05070a;color:var(--gold);font-size:clamp(18px,5vw,24px);font-weight:800;padding:34px;letter-spacing:.5px}
+  @media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
   /* blocker / start */
   #blocker{inset:0;position:fixed;z-index:30;display:flex;align-items:center;justify-content:center;
     background:radial-gradient(900px 500px at 70% 20%,#16243440,transparent),rgba(5,7,10,.92);text-align:center;cursor:pointer}
@@ -124,6 +149,15 @@
   <span class="key">W A S D</span> andar/dirigir &nbsp; <span class="key">Shift</span> correr &nbsp; <span class="key">E</span> interagir/carro &nbsp; <span class="key">Tab</span> celular &nbsp; <span class="key">Esc</span> cursor &nbsp;·&nbsp; <span class="key">[ ]</span> exposição &nbsp; <span class="key">- =</span> bloom &nbsp; <span class="key">B</span> liga/desliga
 </div>
 <canvas class="ui" id="map"></canvas>
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <div id="tbtns">
+    <button id="btnPhone" type="button">☰</button>
+    <button id="btnRun" type="button">RUN</button>
+    <button id="btnE" type="button">E</button>
+  </div>
+</div>
+<div id="rotate">🔄 Gire o aparelho para a horizontal</div>
 
 <div id="blocker">
   <div class="box">
@@ -165,7 +199,6 @@ setTimeout(function(){
 
 <script type="module">
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -322,9 +355,13 @@ const DISTRICTS=[
 ];
 function districtAt(x,z){for(const d of DISTRICTS)if(d.test(x,z))return d.n;return "Midtown";}
 
-let renderer,scene,camera,controls,clock;
+let renderer,scene,camera,clock;
 let composer=null,bloomPass=null,headlightL=null,headlightR=null;
 let exposure=1.15, bloomStrength=0.85;
+// input: unified manual FPS look (desktop pointer-lock+mouse OR touch)
+let isTouch=false, active=false, yaw=-Math.PI/4, pitch=0;
+const joy={x:0,y:0,active:false};
+let lookId=null, lookLast=null;
 let interactables=[];      // {pos:Vector3, range, label, prompt, onUse, mesh}
 let crowd=null, crowdData=[];
 let sun, hemi, skyMat;
@@ -362,13 +399,15 @@ function initThree(){
   try{initMinimap();}catch(e){console.error('minimap',e);}
   try{setupGraphics();}catch(e){console.error('graphics',e);composer=null;}
 
-  controls=new PointerLockControls(camera,document.body);
-  controls.addEventListener('lock',()=>{document.body.classList.add('locked');$("blocker").style.display='none';});
-  controls.addEventListener('unlock',()=>{document.body.classList.remove('locked');if(!scrimOpen()&&!isDriving)$("blocker").style.display='flex';});
-  // PointerLockControls moves the camera directly (this.object===camera); no need to add it to the scene.
+  // manual first-person look (works on desktop pointer-lock + mouse, or touch)
+  camera.rotation.order='YXZ'; applyLook();
+  isTouch=(typeof matchMedia!=='undefined' && matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window);
+  setupDesktopLook();
+  if(isTouch) setupTouch();
 
   addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight);});
-  $("blocker").addEventListener('click',()=>{if(!scrimOpen())controls.lock();});
+  $("blocker").addEventListener('click',enterPlay);
+  $("blocker").addEventListener('touchend',e=>{e.preventDefault();enterPlay();},{passive:false});
   setupKeys();
 }
 
@@ -668,9 +707,9 @@ function buildCar(){
   addInteractable(car.pos.x,car.pos.z,{label:"Seu carro",color:0xf0685f,prompt:"<b>entrar no carro</b> (dirigir)",kind:"car",onUse:enterCar});
   carIx=interactables[interactables.length-1];
 }
-function enterCar(){ if(isDriving||inOffice)return; isDriving=true; car.speed=0; document.body.classList.add('driving'); if(controls)controls.unlock(); toast("Você entra no carro"); }
+function enterCar(){ if(isDriving||inOffice)return; isDriving=true; car.speed=0; document.body.classList.add('driving'); updateTouchButtons(); toast("Você entra no carro"); }
 function exitCar(){ isDriving=false; document.body.classList.remove('driving'); if(carIx)carIx.pos.copy(car.pos);
-  camera.position.set(car.pos.x+3,EYE,car.pos.z+3); if(controls)controls.lock(); $("prompt").classList.remove('on'); }
+  yaw=car.heading+Math.PI/2; pitch=0; camera.position.set(car.pos.x+3,EYE,car.pos.z+3); $("prompt").classList.remove('on'); updateTouchButtons(); }
 function updateDriving(dt){
   const accel=22, maxF=(move.sprint?96:62), maxR=20, turn=1.7;
   if(move.f)car.speed+=accel*dt; if(move.b)car.speed-=accel*dt;
@@ -761,6 +800,60 @@ function updateDayNight(dt){
 let _flash=0;function flashSky(){_flash=1;}
 
 /* ---- controls ---- */
+/* ---- unified look / input ---- */
+function applyLook(){ camera.rotation.set(pitch,yaw,0); }
+function hideBlocker(){ $("blocker").style.display='none'; }
+function showBlocker(){ if(!scrimOpen()&&!isDriving) $("blocker").style.display='flex'; }
+function enterPlay(){
+  if(scrimOpen())return;
+  if(isTouch){ active=true; hideBlocker(); updateTouchButtons(); }
+  else { const el=renderer&&renderer.domElement; if(el&&el.requestPointerLock)el.requestPointerLock(); }
+}
+function setupDesktopLook(){
+  document.addEventListener('pointerlockchange',()=>{
+    const el=renderer&&renderer.domElement;
+    active=(document.pointerLockElement===el);
+    document.body.classList.toggle('locked',active);
+    if(active)hideBlocker(); else showBlocker();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!active||isTouch||isDriving)return;
+    yaw-=(e.movementX||0)*0.0022; pitch=clamp(pitch-(e.movementY||0)*0.0022,-1.45,1.45);
+  });
+}
+function setupTouch(){
+  document.body.classList.add('touch'); $("touch").classList.remove('hidden');
+  const cta=document.querySelector('#blocker .cta'); if(cta)cta.textContent='▶ Toque para jogar';
+  const stick=$("stick"), knob=$("knob"); let sid=null,cx=0,cy=0; const R=52;
+  const sStart=e=>{const t=e.changedTouches[0];sid=t.identifier;const r=stick.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;joy.active=true;e.preventDefault();e.stopPropagation();};
+  const sMove=e=>{ if(sid===null)return; for(const t of e.changedTouches){ if(t.identifier!==sid)continue; let dx=t.clientX-cx,dy=t.clientY-cy; const d=Math.hypot(dx,dy)||1; if(d>R){dx*=R/d;dy*=R/d;} joy.x=clamp(dx/R,-1,1); joy.y=clamp(-dy/R,-1,1); knob.style.transform='translate('+dx+'px,'+dy+'px)'; } e.preventDefault();e.stopPropagation(); };
+  const sEnd=e=>{ for(const t of e.changedTouches){ if(t.identifier===sid){sid=null;joy.x=0;joy.y=0;joy.active=false;knob.style.transform='translate(0,0)';} } e.stopPropagation(); };
+  stick.addEventListener('touchstart',sStart,{passive:false});
+  stick.addEventListener('touchmove',sMove,{passive:false});
+  stick.addEventListener('touchend',sEnd,{passive:false});
+  stick.addEventListener('touchcancel',sEnd,{passive:false});
+  const isCtrl=el=>el&&el.closest&&el.closest('#stick,#tbtns,#blocker,#scrim');
+  document.addEventListener('touchstart',e=>{ if(!active)return; for(const t of e.changedTouches){ if(isCtrl(t.target))continue; if(lookId===null){lookId=t.identifier;lookLast={x:t.clientX,y:t.clientY};} } },{passive:true});
+  document.addEventListener('touchmove',e=>{ if(lookId===null)return; for(const t of e.changedTouches){ if(t.identifier!==lookId)continue; const dx=t.clientX-lookLast.x,dy=t.clientY-lookLast.y; lookLast={x:t.clientX,y:t.clientY}; if(isDriving)continue; yaw-=dx*0.005; pitch=clamp(pitch-dy*0.005,-1.4,1.4); } },{passive:true});
+  const lookEnd=e=>{ for(const t of e.changedTouches){ if(t.identifier===lookId)lookId=null; } };
+  document.addEventListener('touchend',lookEnd,{passive:true});
+  document.addEventListener('touchcancel',lookEnd,{passive:true});
+  const bind=(id,fn)=>{const b=$(id);if(!b)return;b.addEventListener('touchstart',ev=>{ev.preventDefault();ev.stopPropagation();fn();},{passive:false});};
+  bind('btnE',()=>{ if(isDriving)exitCar(); else tryInteract(); });
+  bind('btnPhone',()=>{ if(!isDriving)togglePhone(); });
+  bind('btnRun',()=>{ move.sprint=!move.sprint; const b=$("btnRun"); if(b)b.classList.toggle('on',move.sprint); });
+  document.addEventListener('gesturestart',e=>e.preventDefault());
+  updateTouchButtons();
+}
+function updateTouchButtons(){
+  if(!isTouch)return;
+  $("touch").style.display=(active&&!scrimOpen())?'block':'none';
+  const be=$("btnE"); if(!be)return;
+  if(isDriving){be.style.display='flex';be.textContent='Sair';}
+  else if(nearest&&!scrimOpen()){be.style.display='flex';be.textContent='E';}
+  else be.style.display='none';
+}
+
 function setupKeys(){
   addEventListener('keydown',e=>{
     if(e.code==='KeyW')move.f=true;else if(e.code==='KeyS')move.b=true;
@@ -783,33 +876,32 @@ function setupKeys(){
 }
 let nearest=null;
 function updateMovement(dt){
-  if(!controls.isLocked||isDriving)return;
-  const sp=(move.sprint?22:11)*dt;
-  if(move.f)controls.moveForward(sp);if(move.b)controls.moveForward(-sp);
-  if(move.l)controls.moveRight(-sp);if(move.r)controls.moveRight(sp);
-  const o=camera;
-  if(inOffice){
-    o.position.x=clamp(o.position.x,OFFICE.x-22,OFFICE.x+22);
-    o.position.z=clamp(o.position.z,-17,17); o.position.y=EYE;
-    $("sLoc").textContent="Sua sede";
-  } else {
-    o.position.x=clamp(o.position.x,-BOUND+6,BOUND-6);
-    o.position.z=clamp(o.position.z,-BOUND+6,BOUND-6); o.position.y=EYE;
-    $("sLoc").textContent=districtAt(o.position.x,o.position.z);
+  if(!active||isDriving)return;
+  applyLook();
+  let mx=joy.x, my=joy.y;
+  if(move.f)my+=1; if(move.b)my-=1; if(move.l)mx-=1; if(move.r)mx+=1;
+  mx=clamp(mx,-1,1); my=clamp(my,-1,1);
+  if(mx||my){
+    const sp=(move.sprint?22:11)*dt;
+    const fx=-Math.sin(yaw), fz=-Math.cos(yaw), rx=Math.cos(yaw), rz=-Math.sin(yaw);
+    camera.position.x+=(fx*my+rx*mx)*sp; camera.position.z+=(fz*my+rz*mx)*sp;
   }
-  // nearest interactable
+  const o=camera;
+  if(inOffice){ o.position.x=clamp(o.position.x,OFFICE.x-22,OFFICE.x+22); o.position.z=clamp(o.position.z,-17,17); o.position.y=EYE; $("sLoc").textContent="Sua sede"; }
+  else { o.position.x=clamp(o.position.x,-BOUND+6,BOUND-6); o.position.z=clamp(o.position.z,-BOUND+6,BOUND-6); o.position.y=EYE; $("sLoc").textContent=districtAt(o.position.x,o.position.z); }
   nearest=null;let bd=1e9;
   for(const it of interactables){const d=it.pos.distanceTo(o.position);if(d<it.range&&d<bd){bd=d;nearest=it;}}
   const pr=$("prompt");
   if(nearest&&!scrimOpen()){pr.classList.add('on');pr.innerHTML="<span class='key'>E</span> "+nearest.prompt;}
   else pr.classList.remove('on');
+  updateTouchButtons();
 }
-function tryInteract(){if(nearest&&!scrimOpen()&&controls.isLocked){nearest.onUse();}}
+function tryInteract(){if(nearest&&!scrimOpen()&&active){nearest.onUse();}}
 
 /* ============================ UI / DOM ============================ */
 function scrimOpen(){return $("scrim").classList.contains('on');}
-function openScrim(){if(controls&&controls.isLocked)controls.unlock();$("scrim").classList.add('on');$("blocker").style.display='none';}
-function close(){$("scrim").classList.remove('on');$("blocker").style.display=document.body.classList.contains('locked')?'none':'flex';}
+function openScrim(){ active=false; if(!isTouch&&document.exitPointerLock)document.exitPointerLock(); $("scrim").classList.add('on'); $("blocker").style.display='none'; updateTouchButtons(); }
+function close(){ $("scrim").classList.remove('on'); if(isTouch){ active=true; } else { $("blocker").style.display=document.body.classList.contains('locked')?'none':'flex'; } updateTouchButtons(); }
 function modal(ico,title,bodyHtml,opts){
   openScrim();
   $("panel").innerHTML="<div class='top'><div class='ico'>"+ico+"</div><div><div class='k'>Dia "+S.day+"</div><h3>"+title+"</h3></div><div class='x' onclick='__close()'>×</div></div>"+

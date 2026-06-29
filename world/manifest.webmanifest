@@ -1,0 +1,14 @@
+{
+  "name": "MOGUL — Meridian City",
+  "short_name": "MOGUL",
+  "description": "Business Empire Life Simulator — Meridian City em 3D.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#05070a",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
