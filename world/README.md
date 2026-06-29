@@ -15,6 +15,8 @@
 | Mouse | Olhar |
 | `E` | Interagir (quando o aviso aparece) / entrar e sair do carro |
 | `V` | Alternar câmera **1ª ↔ 3ª pessoa** (estilo GTA) |
+| `E` | **Entrar em qualquer carro** da rua / interagir / sair do carro |
+| `R` | Chuva on/off · `P` modo foto · `N` trocar rádio |
 | `Tab` | Abrir/fechar o celular (MeridianOS) |
 | `M` | Ligar/desligar o som |
 | `Esc` | Liberar o cursor |
@@ -67,10 +69,15 @@ Isto é uma **fatia 3D estilizada em tempo real (WebGL/Three.js)** — para voc�
 
 ## ✨ Inspiração GTA (PC)
 - **Câmera em 3ª pessoa** com avatar visível (tecla `V` alterna com 1ª pessoa) — a "cara" de GTA
-- **Objetivos / waypoint**: sempre há um alvo (blip **amarelo**) ligado aos negócios — vá até lá (a pé ou de carro) e ganhe caixa/reputação; ao concluir, surge o próximo (o loop "vá até o blip")
-- **Radar circular** estilo GTA que **gira com você**, com blips (objetivo, carro, marcos)
-- **Áudio** sintetizado: ambiente da cidade, **motor do carro** (acelera junto), bipes (tecla `M` muda)
-- **Mais vida**: árvores nas calçadas, pedestres, trânsito, postes — tudo brilhando com o bloom à noite
+- **Pegar qualquer carro**: há vários carros pela cidade; chegue perto e `E` para entrar e dirigir (sai com `E`)
+- **Objetivos / missões**: sempre há um alvo (blip **amarelo**) ligado aos negócios; algumas são **em duas etapas com uma escolha** (negociar duro vs. fechar amigável). Conclua → caixa/reputação → surge o próximo
+- **Radar circular** estilo GTA que **gira com você**, com blips (objetivo, carros, marcos)
+- **Clima dinâmico**: chuva (tecla `R` ou automático) com **asfalto molhado refletindo** as luzes
+- **Modo foto** (`P`): esconde a interface para capturas
+- **Rádio** (`N`): estações sintetizadas; **áudio** com ambiente da cidade e **motor do carro** (acelera junto); `M` muda
+- **Mais vida**: pedestres (corpo+cabeça) que **fogem do carro**, trânsito que **para em "semáforos"**, árvores e postes — tudo brilhando com o bloom à noite
+
+> Padrões de visual: **exposição 1.75**, **bloom 0.20** (ajustáveis ao vivo com `[ ] - =`). Direção do carro corrigida (esquerda/direita).
 
 ## Já implementado neste mundo
 - ✅ **Interiores de escritório** que você percorre e que **crescem com a empresa** ([08-Assets](../docs/08-ASSETS-SYSTEMS.md)).
