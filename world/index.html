@@ -435,61 +435,118 @@ function initThree(){
   setupKeys();
 }
 
+function makeAsphaltTexture(){
+  const c=document.createElement('canvas');c.width=128;c.height=512;const g=c.getContext('2d');
+  g.fillStyle='#14171b';g.fillRect(0,0,128,512);
+  for(let i=0;i<900;i++){g.fillStyle='rgba(255,255,255,'+(Math.random()*0.045)+')';g.fillRect(Math.random()*128,Math.random()*512,1.5,1.5);} // grão
+  for(let i=0;i<12;i++){g.fillStyle='rgba(0,0,0,0.16)';g.fillRect(Math.random()*128,Math.random()*512,rnd(10,40),rnd(14,60));}                // remendos
+  g.fillStyle='rgba(228,232,238,0.5)';g.fillRect(6,0,2.5,512);g.fillRect(119.5,0,2.5,512);                                                    // linhas de borda
+  g.fillStyle='rgba(240,234,205,0.85)';for(let y=0;y<512;y+=64)g.fillRect(62,y,4,30);                                                          // faixa central tracejada
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,(BOUND*2)/48);return t;
+}
 function buildCity(){
   // ground
-  groundMat=new THREE.MeshStandardMaterial({color:0x10151c,roughness:0.95,metalness:0.0});
+  groundMat=new THREE.MeshStandardMaterial({color:0x0e1216,roughness:0.95,metalness:0.0});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(BOUND*2+200,BOUND*2+200),groundMat);
   ground.rotation.x=-Math.PI/2;scene.add(ground);
-  // road grid (emissive thin strips)
-  const roadMat=new THREE.MeshStandardMaterial({color:0x161d27,emissive:0x182230,emissiveIntensity:.5,roughness:.7});
+  // roads: real asphalt (grain, patches, edge lines, dashed centre) + instanced curbs
+  const roadMat=new THREE.MeshStandardMaterial({map:makeAsphaltTexture(),roughness:.9,metalness:0});
+  const roadGeo=new THREE.PlaneGeometry(12,BOUND*2);
+  const curbs=[];
   for(let i=-BOUND;i<=BOUND;i+=40){
-    const h=new THREE.Mesh(new THREE.PlaneGeometry(BOUND*2,12),roadMat);h.rotation.x=-Math.PI/2;h.position.set(0,0.02,i);scene.add(h);
-    const v=new THREE.Mesh(new THREE.PlaneGeometry(12,BOUND*2),roadMat);v.rotation.x=-Math.PI/2;v.position.set(i,0.02,0);scene.add(v);
+    const v=new THREE.Mesh(roadGeo,roadMat);v.rotation.x=-Math.PI/2;v.position.set(i,0.02,0);scene.add(v);
+    const h=new THREE.Mesh(roadGeo,roadMat);h.rotation.set(-Math.PI/2,0,Math.PI/2);h.position.set(0,0.02,i);scene.add(h);
+    curbs.push({x:i-7.5,z:0,a:'z'},{x:i+7.5,z:0,a:'z'},{x:0,z:i-7.5,a:'x'},{x:0,z:i+7.5,a:'x'});
   }
-  // window texture
-  const tex=makeWindowTexture();
-  // buildings via InstancedMesh
-  const cells=[];
+  const unitBox=new THREE.BoxGeometry(1,1,1);
+  const curbInst=new THREE.InstancedMesh(unitBox,new THREE.MeshStandardMaterial({color:0x272d35,roughness:.92}),curbs.length);
+  { const m=new THREE.Matrix4(),q=new THREE.Quaternion();
+    curbs.forEach((cb,i)=>{const s=cb.a==='z'?new THREE.Vector3(3,0.14,BOUND*2):new THREE.Vector3(BOUND*2,0.14,3);
+      m.compose(new THREE.Vector3(cb.x,0.07,cb.z),q,s);curbInst.setMatrixAt(i,m);});
+    curbInst.instanceMatrix.needsUpdate=true; }
+  scene.add(curbInst);
+  // districts get real architectural identity: material + window style + massing
+  const styleDef={
+    glass:{tex:'glass',color:0x27313d,rough:.16,metal:.65,emis:0xbfd6ff,emisScale:1.15,envScale:3.2}, // Sterling: torres de vidro
+    tech: {tex:'tech', color:0x222b36,rough:.45,metal:.30,emis:0xa9c4ff,emisScale:1.0, envScale:1.4}, // Grid: corporativo moderno
+    res:  {tex:'res',  color:0x2a2520,rough:.80,metal:.05,emis:0xffd9a0,emisScale:.8,  envScale:.7},  // Boroughs: tijolo/residencial
+    ind:  {tex:'ind',  color:0x171b20,rough:.85,metal:.25,emis:0xffc98a,emisScale:.5,  envScale:.9},  // Ironside: galpões
+    lux:  {tex:'lux',  color:0x322c1f,rough:.50,metal:.30,emis:0xffe2b0,emisScale:.95, envScale:1.6}, // Goldhaven: pedra clara/elegante
+  };
+  const buckets={glass:[],tech:[],res:[],ind:[],lux:[]};
+  const roof=[],beac=[],ant=[];
   for(let x=-BOUND+20;x<BOUND;x+=40){
     for(let z=-BOUND+20;z<BOUND;z+=40){
-      // skip road lanes (already at multiples of 40); place building blocks between
       const bx=x+ri(-6,6), bz=z+ri(-6,6);
       const dist=districtAt(bx,bz);
-      let hRange=[14,40], col=0x1b2430;
-      if(dist==="Sterling Heights"){hRange=[60,150];col=0x202a3a;}
-      else if(dist==="The Grid"){hRange=[20,60];col=0x1d2733;}
-      else if(dist==="Goldhaven"){hRange=[24,70];col=0x2a2418;}
-      else if(dist==="Ironside Docklands"){hRange=[8,22];col=0x171c22;}
-      else if(dist==="The Boroughs"){hRange=[10,26];col=0x191f27;}
-      const h=rnd(hRange[0],hRange[1]);
-      cells.push({x:bx,z:bz,w:rnd(14,24),d:rnd(14,24),h,col});
+      let style='tech', hR=[16,42];
+      if(dist==="Sterling Heights"){style='glass';hR=[60,150];}
+      else if(dist==="The Grid"){style='tech';hR=[20,60];}
+      else if(dist==="Goldhaven"){style='lux';hR=[24,70];}
+      else if(dist==="Ironside Docklands"){style='ind';hR=[8,20];}
+      else if(dist==="The Boroughs"){style='res';hR=[10,26];}
+      else {style=chance(.5)?'tech':'res';hR=[14,40];}
+      const h=rnd(hR[0],hR[1]), w=rnd(14,24), d=rnd(14,24);
+      const shade=Math.round((0.72+Math.random()*0.28)*255);
+      buckets[style].push({x:bx,z:bz,w,d,h,shade});
+      if(style==='glass'&&h>80&&chance(.7)) buckets.glass.push({x:bx,z:bz,w:w+rnd(6,10),d:d+rnd(6,10),h:rnd(8,14),shade}); // pódio da torre
+      if(h<95){const n=ri(1,3);for(let k=0;k<n;k++)roof.push({x:bx+rnd(-w*0.3,w*0.3),z:bz+rnd(-d*0.3,d*0.3),y:h,s:rnd(1.4,3.4)});} // AC/caixa d'água
+      if(h>=95) beac.push({x:bx,z:bz,y:h+1.2});                                            // luz de aviação
+      if(h>=30&&chance(.35)) ant.push({x:bx+rnd(-3,3),z:bz+rnd(-3,3),y:h,l:rnd(4,9)});     // antenas
     }
   }
-  const geo=new THREE.BoxGeometry(1,1,1);
-  const mat=new THREE.MeshStandardMaterial({color:0x222c3a,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:.0,roughness:.6,metalness:.1});
-  mat.emissive=new THREE.Color(0xbfd0ff);
-  const inst=new THREE.InstancedMesh(geo,mat,cells.length);
-  const m=new THREE.Matrix4(),col=new THREE.Color();
-  cells.forEach((c,i)=>{m.compose(new THREE.Vector3(c.x,c.h/2,c.z),new THREE.Quaternion(),new THREE.Vector3(c.w,c.h,c.d));inst.setMatrixAt(i,m);col.setHex(c.col);inst.setColorAt(i,col);});
-  inst.instanceMatrix.needsUpdate=true;if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
-  scene.add(inst);
-  buildingMat=mat;
+  buildingMats.length=0; let firstMat=null;
+  for(const key of Object.keys(buckets)){
+    const cells=buckets[key]; if(!cells.length)continue;
+    const sd=styleDef[key];
+    const mmat=new THREE.MeshStandardMaterial({color:sd.color,emissive:new THREE.Color(sd.emis),emissiveMap:makeWindowTexture(sd.tex),emissiveIntensity:0,roughness:sd.rough,metalness:sd.metal});
+    mmat.userData={emisScale:sd.emisScale,envScale:sd.envScale};
+    const inst=new THREE.InstancedMesh(unitBox,mmat,cells.length);
+    const m=new THREE.Matrix4(),col=new THREE.Color();
+    cells.forEach((c,i)=>{m.compose(new THREE.Vector3(c.x,c.h/2,c.z),new THREE.Quaternion(),new THREE.Vector3(c.w,c.h,c.d));inst.setMatrixAt(i,m);
+      col.setHex((c.shade<<16)|(c.shade<<8)|c.shade);inst.setColorAt(i,col);});
+    inst.instanceMatrix.needsUpdate=true;if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
+    scene.add(inst); buildingMats.push(mmat); if(!firstMat)firstMat=mmat;
+  }
+  buildingMat=firstMat;
+  // rooftop life: clutter, antennas, aviation beacons (bloom picks the reds up at night)
+  if(roof.length){const rInst=new THREE.InstancedMesh(unitBox,new THREE.MeshStandardMaterial({color:0x3a414b,roughness:.9,metalness:.2}),roof.length);
+    const m=new THREE.Matrix4(),q=new THREE.Quaternion();
+    roof.forEach((r,i)=>{m.compose(new THREE.Vector3(r.x,r.y+r.s*0.35,r.z),q,new THREE.Vector3(r.s,r.s*0.7,r.s));rInst.setMatrixAt(i,m);});
+    rInst.instanceMatrix.needsUpdate=true;scene.add(rInst);}
+  if(ant.length){const aInst=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08,0.12,1,5),new THREE.MeshStandardMaterial({color:0x2a3038,roughness:.6,metalness:.6}),ant.length);
+    const m=new THREE.Matrix4(),q=new THREE.Quaternion();
+    ant.forEach((a,i)=>{m.compose(new THREE.Vector3(a.x,a.y+a.l/2,a.z),q,new THREE.Vector3(1,a.l,1));aInst.setMatrixAt(i,m);});
+    aInst.instanceMatrix.needsUpdate=true;scene.add(aInst);}
+  if(beac.length){const bInst=new THREE.InstancedMesh(new THREE.SphereGeometry(0.7,8,8),new THREE.MeshBasicMaterial({color:0xff2a2a}),beac.length);
+    const m=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(1,1,1);
+    beac.forEach((b,i)=>{m.compose(new THREE.Vector3(b.x,b.y,b.z),q,s);bInst.setMatrixAt(i,m);});
+    bInst.instanceMatrix.needsUpdate=true;scene.add(bInst);}
 }
-let buildingMat=null;
-function makeWindowTexture(){
+let buildingMat=null; const buildingMats=[];
+function makeWindowTexture(style){
+  // per-district window languages (default keeps the original look; office uses it)
+  const styles={
+    default:{gx:11,gy:13,cw:7,ch:8, lit:.55,warmP:.45,darkF:.18},
+    glass:  {gx:11,gy:12,cw:9,ch:10,lit:.78,warmP:.12,darkF:.06},  // curtain-wall: quase tudo aceso, frio
+    tech:   {gx:11,gy:13,cw:7,ch:8, lit:.60,warmP:.25,darkF:.12},
+    res:    {gx:12,gy:15,cw:6,ch:7, lit:.38,warmP:.80,darkF:.30},  // janelas menores, quentes, muitas apagadas
+    ind:    {gx:14,gy:22,cw:9,ch:6, lit:.16,warmP:.70,darkF:.50},  // galpões: raras janelas industriais
+    lux:    {gx:12,gy:14,cw:7,ch:9, lit:.50,warmP:.75,darkF:.15},
+  };
+  const p=styles[style]||styles.default;
   const c=document.createElement('canvas');c.width=128;c.height=256;const g=c.getContext('2d');
   g.fillStyle='#070a0f';g.fillRect(0,0,128,256);
   const warm=['#ffd9a0','#ffce86','#ffb866'], cool=['#bcd8ff','#9fc4ff','#d6e6ff'];
-  for(let y=6;y<256;y+=13){
-    const floorDark=Math.random()<0.18;            // some floors mostly dark
-    for(let x=6;x<128;x+=11){
+  for(let y=6;y<256;y+=p.gy){
+    const floorDark=Math.random()<p.darkF;
+    for(let x=6;x<128;x+=p.gx){
       const r=Math.random();
-      if(floorDark? r<0.12 : r<0.55){
-        const warmLit=Math.random()<0.45;
-        g.fillStyle=(warmLit?warm:cool)[Math.floor(Math.random()*3)];
-        g.globalAlpha=0.55+Math.random()*0.45;     // brightness variation
-        g.fillRect(x,y,7,8);
-      } else { g.fillStyle='#0c1118'; g.globalAlpha=1; g.fillRect(x,y,7,8); }
+      if(floorDark? r<p.lit*0.2 : r<p.lit){
+        g.fillStyle=(Math.random()<p.warmP?warm:cool)[Math.floor(Math.random()*3)];
+        g.globalAlpha=0.55+Math.random()*0.45;
+        g.fillRect(x,y,p.cw,p.ch);
+      } else { g.fillStyle='#0c1118'; g.globalAlpha=1; g.fillRect(x,y,p.cw,p.ch); }
     }
   }
   g.globalAlpha=1;
@@ -785,7 +842,8 @@ function setupGraphics(){
     const eqt=makeEnvGradient(); eqt.mapping=THREE.EquirectangularReflectionMapping;
     scene.environment=pmrem.fromEquirectangular(eqt).texture;
     eqt.dispose(); pmrem.dispose();
-    if(buildingMat)buildingMat.envMapIntensity=0.22;
+    const bms=buildingMats.length?buildingMats:(buildingMat?[buildingMat]:[]);
+    for(const bm of bms){bm.envMapIntensity=0.22*((bm.userData&&bm.userData.envScale)||1);}
   }catch(e){console.error('env',e);}
   // bloom — the single biggest "alive at night" win (neon windows/lights glow)
   composer=new EffectComposer(renderer);
@@ -942,7 +1000,9 @@ function updateDayNight(dt){
   lerpC(A.hemiSky,B.hemiSky,t,hemi.color);
   sun.intensity=A.sunI+(B.sunI-A.sunI)*t;
   hemi.intensity=A.hemiI+(B.hemiI-A.hemiI)*t;
-  if(buildingMat)buildingMat.emissiveIntensity=A.emis+(B.emis-A.emis)*t;
+  const emisNow=A.emis+(B.emis-A.emis)*t;
+  if(buildingMats.length){for(const bm of buildingMats)bm.emissiveIntensity=emisNow*((bm.userData&&bm.userData.emisScale)||1);}
+  else if(buildingMat)buildingMat.emissiveIntensity=emisNow;
   const ang=timeOfDay*Math.PI*2;sun.position.set(Math.cos(ang)*120,Math.max(8,Math.sin(ang)*140),Math.sin(ang)*60);
   // clock label
   const hh=Math.floor(((timeOfDay*24)+6)%24);const ic=hh<6?"🌙":hh<11?"🌅":hh<17?"☀️":hh<20?"🌆":"🌙";
