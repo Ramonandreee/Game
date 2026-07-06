@@ -19,9 +19,12 @@ Isto é um **scaffold de pré-produção**, não o build AAA final. Ele estabele
 
 ```
 Source/MOGUL/
+  World/
+    MogulCityBootstrap        Rig de mundo: sol/céu/nuvens/fog físicos + post AAA
+                              + cidade greybox por distrito (seed) — doc 13
   Core/
     MogulGameInstance         Lifetime dos subsistemas globais
-    MogulGameModeBase         Game mode base
+    MogulGameModeBase         Game mode base (auto-spawna o rig em levels sem céu)
     MogulSimulationSubsystem  "World tick" (FTickableGameObject) — doc 10 §3
     MogulEventBus             Event-Driven Architecture — doc 10 §3.2
   Economy/
@@ -59,6 +62,32 @@ if (UMogulEconomySubsystem* Econ = GetGameInstance()->GetSubsystem<UMogulEconomy
 
 ## Plugins habilitados (`MOGUL.uproject`)
 EnhancedInput, GameplayAbilities (GAS), PCG, MassEntity/MassGameplay/MassAI, StateTree/GameplayStateTree, SmartObjects, ChaosVehicles, Water, ModelingToolsEditorMode. Nanite e Lumen são ligados em `Config/DefaultEngine.ini` (features de engine, não plugins).
+
+## 🌇 A Cena Meridian — onde o fotorrealismo começa
+
+O `AMogulCityBootstrap` (em `Source/MOGUL/World/`) transforma **qualquer level** no ponto
+de partida fotorrealista do [doc 13](../docs/13-ART-DIRECTION.md):
+
+- **Iluminação física**: sol direcional em *golden hour* (50.000 lux, disco suave),
+  **SkyAtmosphere** (céu físico), **nuvens volumétricas**, **fog volumétrico**,
+  **SkyLight em captura em tempo real** (o GI do céu acompanha o sol) — tudo sob **Lumen**
+- **Post-process AAA contido**: exposição automática por histograma (+0.3 EV),
+  **bloom 0.20** (calibrado no protótipo), motion blur 0.35, vinheta, grão de filme sutil
+- **Cidade greybox por distrito**: a MESMA massa urbana de Meridian do protótipo
+  (Sterling com torres + pódios, Grid, Boroughs, Ironside, Goldhaven), gerada por
+  `RandomSeed` determinístico via InstancedStaticMesh — edite o seed no editor e a
+  cidade regenera na hora
+
+**Como ver:** abra o projeto → compile → **File > New Level > Empty Level** → Play.
+O GameMode detecta que o level não tem céu e spawna o rig sozinho (em maps de template,
+que já têm sol, ele **não** duplica a luz — coloque o ator manualmente se quiser forçar).
+Voe com o DefaultPawn (WASD + mouse) pela massa urbana sob a luz de fim de tarde.
+
+**De greybox a fotorrealismo** (o caminho de produção, doc 13 §4):
+1. Substituir os cubos por kits de fachada com **Nanite** (Fab/Quixel Megascans — gratuito p/ UE)
+2. Materiais **PBR completos** (albedo/normal/roughness/metallic/AO) nos kits
+3. **MetaHumans** para a população; **PCG** para espalhar detalhe urbano
+4. O rig de luz/post permanece — é ele que faz até o greybox "parecer foto"
 
 ## Próximos passos de engine (roadmap do doc 11)
 1. **Player Character** + EnhancedInput (a navegação 1ª pessoa prototipada em `../world`).

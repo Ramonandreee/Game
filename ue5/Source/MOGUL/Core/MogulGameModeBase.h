@@ -12,4 +12,9 @@ class MOGUL_API AMogulGameModeBase : public AGameModeBase
 
 public:
 	AMogulGameModeBase();
+
+protected:
+	// Guarantees the Meridian world rig (photoreal sky/post + greybox city)
+	// exists in levels that ship without a sky — an Empty Level "just works".
+	virtual void BeginPlay() override;
 };
