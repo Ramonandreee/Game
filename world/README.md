@@ -31,6 +31,8 @@ Totalmente jogável no iPhone **em paisagem**, como web app nativo:
 - Adicione à **Tela de Início** (Safari → Compartilhar → "Adicionar à Tela de Início") para abrir em tela cheia, sem barras (PWA: `manifest.webmanifest` + `icon.svg`, orientação paisagem, respeita o notch/safe-area, sem zoom acidental)
 - Em **retrato** aparece um aviso para girar o aparelho. O desktop (teclado/mouse) continua igual.
 
+> 🪟 **Vida na altura dos olhos:** **vitrines iluminadas no térreo** dos prédios comerciais (quentes em Goldhaven/Boroughs, frias no Grid/Sterling) e **mobiliário urbano** — **semáforos que alternam** vermelho/verde de verdade, hidrantes, lixeiras, bancos (bairros residenciais/luxo) e placas de rua.
+
 > 🏙️ **Cada distrito conta uma história** ([doc 13](../docs/13-ART-DIRECTION.md)): Sterling = torres de vidro curtain-wall (quase tudo aceso, frio, reflexivo, com pódios); The Grid = corporativo moderno; Boroughs = residencial de tijolo (janelas quentes, muitas apagadas); Ironside = galpões industriais escuros; Goldhaven = pedra clara elegante. **Ruas reais**: asfalto com grão, remendos, linhas de borda, faixa central tracejada e **guias/calçadas**. **Telhados vivos**: caixas d'água/AC, antenas e **luzes vermelhas de aviação** nas torres altas.
 
 > 🌇 **Céu & atmosfera:** céu em gradiente que acompanha o ciclo dia/noite, **sol com brilho** (god-ray via bloom), **estrelas à noite** e névoa fundindo os prédios no horizonte.
