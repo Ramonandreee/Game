@@ -376,7 +376,7 @@ let lookId=null, lookLast=null;
 // GTA-style additions
 let playerPos=null, avatar=null, camMode='tps';
 let objective=null, objBeacon=null;
-let crowdHeads=null, trees=null;
+let crowdHeads=null, crowdLegs=null, crowdHair=null, crowdArms=null, trees=null;
 let audio=null, muted=false;
 let groundMat=null, rain=null, rainV=null, weather='clear', weatherTimer=25;
 let photo=false, radioStation=0, radioBeat=0;
@@ -568,23 +568,30 @@ function makeWindowTexture(style){
 
 function buildCrowd(){
   const N=220;
-  crowd=new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.3,0.95,3,6),new THREE.MeshStandardMaterial({color:0x6b7686,roughness:.8}),N);
-  crowdHeads=new THREE.InstancedMesh(new THREE.SphereGeometry(0.24,8,8),new THREE.MeshStandardMaterial({color:0xc99a72,roughness:.8}),N);
-  const m=new THREE.Matrix4(),col=new THREE.Color();
-  const tones=[0x8390a3,0x6f7c8e,0x9aa6b6,0x5c6878,0xb0a182,0x7a8aa0,0x4a5a48,0x70506a];
+  crowd     =new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.155,0.42,3,7),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7}),N);   // torso = roupa
+  crowdLegs =new THREE.InstancedMesh(new THREE.CylinderGeometry(0.125,0.095,0.86,7),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.75}),N); // calça
+  crowdHeads=new THREE.InstancedMesh(new THREE.SphereGeometry(0.115,8,8),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.6}),N);          // pele
+  crowdHair =new THREE.InstancedMesh(new THREE.SphereGeometry(0.128,8,6,0,Math.PI*2,0,Math.PI*0.55),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9}),N);
+  crowdArms =new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.055,0.5,3,6),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7}),N*2);
+  const col=new THREE.Color();
   for(let i=0;i<N;i++){
     const x=rnd(-BOUND+10,BOUND-10), z=rnd(-BOUND+10,BOUND-10);
-    crowdData.push({x,z,a:rnd(0,Math.PI*2),sp:rnd(2,5)});
-    m.compose(new THREE.Vector3(x,0.85,z),new THREE.Quaternion(),new THREE.Vector3(1,1,1));crowd.setMatrixAt(i,m);
-    m.compose(new THREE.Vector3(x,1.55,z),new THREE.Quaternion(),new THREE.Vector3(1,1,1));crowdHeads.setMatrixAt(i,m);
-    col.setHex(pick(tones));crowd.setColorAt(i,col);
+    const d=districtAt(x,z);
+    const outfit=pick((d==="Sterling Heights"||d==="The Grid")?SUITS:(d==="Goldhaven"?ELEGANT:CASUAL)); // roupa condiz com o bairro
+    crowdData.push({x,z,a:rnd(0,Math.PI*2),sp:rnd(2,5),hs:rnd(0.92,1.08),ph:rnd(0,Math.PI*2),hairY:chance(.12)?0.05:rnd(0.55,1.25)});
+    col.setHex(outfit);crowd.setColorAt(i,col);crowdArms.setColorAt(2*i,col);crowdArms.setColorAt(2*i+1,col);
+    col.setHex(pick(PANTSC));crowdLegs.setColorAt(i,col);
+    col.setHex(pick(SKINS));crowdHeads.setColorAt(i,col);
+    col.setHex(pick(HAIRC));crowdHair.setColorAt(i,col);
   }
-  crowd.instanceMatrix.needsUpdate=true;crowdHeads.instanceMatrix.needsUpdate=true;if(crowd.instanceColor)crowd.instanceColor.needsUpdate=true;
-  scene.add(crowd);scene.add(crowdHeads);
+  [crowd,crowdLegs,crowdHeads,crowdHair,crowdArms].forEach(x=>{x.instanceMatrix.needsUpdate=true;if(x.instanceColor)x.instanceColor.needsUpdate=true;scene.add(x);});
+  updateCrowd(0); // posiciona as partes no primeiro frame
 }
 function updateCrowd(dt){
-  if(!crowd)return;const m=new THREE.Matrix4(),q=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0),sc=new THREE.Vector3(1,1,1);
+  if(!crowd||!crowdLegs||!crowdHair||!crowdArms)return;
+  const m=new THREE.Matrix4(),q=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0);
   const cx=isDriving&&activeCar?activeCar.pos.x:1e9, cz=isDriving&&activeCar?activeCar.pos.z:1e9;
+  const now=performance.now()*0.001;
   for(let i=0;i<crowdData.length;i++){const p=crowdData[i];
     let spd=p.sp;
     if(isDriving){ const dx=p.x-cx,dz=p.z-cz,d=Math.hypot(dx,dz); if(d<9){ p.a=Math.atan2(dz,dx); spd=9; } } // flee the car (GTA peds)
@@ -593,10 +600,18 @@ function updateCrowd(dt){
     if(p.x<-BOUND+8||p.x>BOUND-8){p.a=Math.PI-p.a;p.x=clamp(p.x,-BOUND+8,BOUND-8);}
     if(p.z<-BOUND+8||p.z>BOUND-8){p.a=-p.a;p.z=clamp(p.z,-BOUND+8,BOUND-8);}
     q.setFromAxisAngle(up,-p.a+Math.PI/2);
-    m.compose(new THREE.Vector3(p.x,0.85,p.z),q,sc);crowd.setMatrixAt(i,m);
-    m.compose(new THREE.Vector3(p.x,1.55,p.z),q,sc);crowdHeads.setMatrixAt(i,m);
+    const hs=p.hs, bob=Math.abs(Math.sin(now*spd*1.6+p.ph))*0.05;             // balanço de caminhada
+    const lx=-Math.sin(p.a)*0.245*hs, lz=Math.cos(p.a)*0.245*hs;              // ombros no eixo lateral
+    const sc=new THREE.Vector3(hs,hs,hs);
+    m.compose(new THREE.Vector3(p.x,1.13*hs+bob,p.z),q,sc);crowd.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p.x,0.52*hs+bob*0.4,p.z),q,sc);crowdLegs.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p.x,1.60*hs+bob,p.z),q,sc);crowdHeads.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p.x,1.66*hs+bob,p.z),q,new THREE.Vector3(hs,p.hairY*hs,hs));crowdHair.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p.x+lx,1.12*hs+bob,p.z+lz),q,sc);crowdArms.setMatrixAt(2*i,m);
+    m.compose(new THREE.Vector3(p.x-lx,1.12*hs+bob,p.z-lz),q,sc);crowdArms.setMatrixAt(2*i+1,m);
   }
-  crowd.instanceMatrix.needsUpdate=true; if(crowdHeads)crowdHeads.instanceMatrix.needsUpdate=true;
+  crowd.instanceMatrix.needsUpdate=true;crowdLegs.instanceMatrix.needsUpdate=true;
+  crowdHeads.instanceMatrix.needsUpdate=true;crowdHair.instanceMatrix.needsUpdate=true;crowdArms.instanceMatrix.needsUpdate=true;
 }
 
 function beacon(color){
@@ -644,11 +659,8 @@ function buildPeopleOfInterest(){
   ];
   spots.forEach(sp=>{
     const person=genPerson(false,sp.tier);
-    const g=new THREE.Group();
-    const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.36,1.05,4,8),new THREE.MeshStandardMaterial({color:0x223047,emissive:0x14304a,emissiveIntensity:.5,roughness:.6}));
-    body.position.y=0.95;g.add(body);
-    const head=new THREE.Mesh(new THREE.SphereGeometry(0.32,12,12),new THREE.MeshStandardMaterial({color:0xd9b48a,roughness:.7}));
-    head.position.y=1.85;g.add(head);
+    const outfit=sp.tier===2?pick(ELEGANT):(sp.tier===1?pick(SUITS):pick(CASUAL)); // roupa condiz com o círculo social
+    const g=makePersonMesh({jacket:outfit});
     const ring=new THREE.Mesh(new THREE.RingGeometry(0.9,1.15,24),new THREE.MeshBasicMaterial({color:0xe8c879,transparent:true,opacity:.5,side:THREE.DoubleSide}));
     ring.rotation.x=-Math.PI/2;ring.position.y=0.05;g.add(ring);
     g.position.set(sp.x,0,sp.z);scene.add(g);
@@ -664,7 +676,7 @@ function buildPeopleOfInterest(){
  * ===================================================================== */
 const OFFICE=new THREE.Vector3(5000,0,0);   // interior far from the city; fog hides the gap
 let inOffice=false, isDriving=false, exteriorPos=null;
-let officeGroup=null, officeDeskInst=null, officeWorkers=null;
+let officeGroup=null, officeDeskInst=null, officeWorkers=null, officeHeads=null;
 let traffic=null; const trafficData=[];
 let billboards=[]; let _lastTop="";
 let cars=[], activeCar=null, nearCar=null;
@@ -699,18 +711,25 @@ function populateOffice(){
   if(!officeGroup)return;
   if(officeDeskInst){officeGroup.remove(officeDeskInst);}
   if(officeWorkers){officeGroup.remove(officeWorkers);}
+  if(officeHeads){officeGroup.remove(officeHeads);}
   const emp=S.companies.reduce((a,c)=>a+c.employees.length,0);
   const n=clamp(emp||6,6,48), cols=8, rows=Math.ceil(n/cols);
   officeDeskInst=new THREE.InstancedMesh(new THREE.BoxGeometry(2.2,0.8,1.2),new THREE.MeshStandardMaterial({color:0x39414f}),n);
-  officeWorkers=new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.3,0.8,3,6),new THREE.MeshStandardMaterial({color:0x8a96a8}),n);
-  const m=new THREE.Matrix4(), q=new THREE.Quaternion(), s=new THREE.Vector3(1,1,1);
+  officeWorkers=new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22,0.6,3,7),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7}),n);
+  officeHeads=new THREE.InstancedMesh(new THREE.SphereGeometry(0.115,8,8),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.6}),n);
+  const m=new THREE.Matrix4(), q=new THREE.Quaternion(), s=new THREE.Vector3(1,1,1), col=new THREE.Color();
   for(let i=0;i<n;i++){
     const cx=((i%cols)-3.5)*2.6, cz=(Math.floor(i/cols)-(rows-1)/2)*3.4;
     m.compose(new THREE.Vector3(cx,0.4,cz),q,s); officeDeskInst.setMatrixAt(i,m);
-    m.compose(new THREE.Vector3(cx,0.95,cz+1.1),q,s); officeWorkers.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(cx,0.85,cz+1.1),q,s); officeWorkers.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(cx,1.32,cz+1.1),q,s); officeHeads.setMatrixAt(i,m);
+    col.setHex(pick(chance(.6)?SUITS:CASUAL)); officeWorkers.setColorAt(i,col);
+    col.setHex(pick(SKINS)); officeHeads.setColorAt(i,col);
   }
-  officeDeskInst.instanceMatrix.needsUpdate=true; officeWorkers.instanceMatrix.needsUpdate=true;
-  officeGroup.add(officeDeskInst); officeGroup.add(officeWorkers);
+  officeDeskInst.instanceMatrix.needsUpdate=true; officeWorkers.instanceMatrix.needsUpdate=true; officeHeads.instanceMatrix.needsUpdate=true;
+  if(officeWorkers.instanceColor)officeWorkers.instanceColor.needsUpdate=true;
+  if(officeHeads.instanceColor)officeHeads.instanceColor.needsUpdate=true;
+  officeGroup.add(officeDeskInst); officeGroup.add(officeWorkers); officeGroup.add(officeHeads);
 }
 function enterOffice(){ if(isDriving)return; exteriorPos=playerPos.clone(); populateOffice(); inOffice=true; playerPos.set(OFFICE.x+18,0,OFFICE.z); toast("Você entra na sua sede"); blip(520,0.1); }
 function exitOffice(){ inOffice=false; if(exteriorPos)playerPos.copy(exteriorPos); else playerPos.set(-120,0,-30); }
@@ -932,19 +951,56 @@ function updateStreetLife(dt){
   if(tlTimer>6){ tlTimer=0; tlPhase^=1; tlRed.visible=(tlPhase===0); tlGreen.visible=(tlPhase===1); }
 }
 
+/* ---- procedural people v2: proporções, pele, cabelo, roupas (doc 13 §4.3, teto WebGL) ---- */
+const SKINS=[0xe8be9c,0xd9a97e,0xb98860,0x9a6a44,0x7a4e30,0x5c3a24];
+const HAIRC=[0x15100c,0x2e2014,0x4a3320,0x6a4a2a,0x8a7d70,0x3a2e28];
+const SUITS=[0x1e2430,0x262b36,0x30363f,0x232a38];
+const CASUAL=[0x4a5568,0x6b4a3a,0x3f5a4a,0x7a6a5a,0x596547,0x54486a];
+const ELEGANT=[0xd8d2c4,0x9a8a6a,0x3a3430,0x6a5a48];
+const PANTSC=[0x1c2026,0x2a2d33,0x3a3226,0x24282e];
+function makePersonMesh(look){
+  look=look||{};
+  const g=new THREE.Group();
+  const skin=new THREE.MeshStandardMaterial({color:look.skin!=null?look.skin:pick(SKINS),roughness:.62});
+  const hairM=new THREE.MeshStandardMaterial({color:look.hair!=null?look.hair:pick(HAIRC),roughness:.9});
+  const jacket=new THREE.MeshStandardMaterial({color:look.jacket!=null?look.jacket:pick(SUITS),roughness:.5,metalness:.12,envMapIntensity:.8});
+  const pants=new THREE.MeshStandardMaterial({color:look.pants!=null?look.pants:pick(PANTSC),roughness:.72});
+  const shoes=new THREE.MeshStandardMaterial({color:0x15171b,roughness:.42,metalness:.2});
+  const dark=new THREE.MeshStandardMaterial({color:0x101216,roughness:.5});
+  const style=look.style||pick(['short','flat','long','bun','bald']);
+  // pernas articuladas no quadril (grupos giram no pivô anatômico certo)
+  const mkLeg=(sx)=>{const j=new THREE.Group();j.position.set(sx*0.115,0.88,0);
+    const l=new THREE.Mesh(new THREE.CapsuleGeometry(0.082,0.6,3,6),pants);l.position.y=-0.38;j.add(l);
+    const s=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.07,0.24),shoes);s.position.set(0,-0.75,0.045);j.add(s);
+    g.add(j);return j;};
+  const legL=mkLeg(-1),legR=mkLeg(1);
+  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(0.155,0.42,4,8),jacket);torso.position.y=1.14;g.add(torso);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.09,0.09,7),skin);collar.position.y=1.47;g.add(collar);
+  // braços articulados no ombro, com mãos
+  const mkArm=(sx)=>{const j=new THREE.Group();j.position.set(sx*0.235,1.40,0);
+    const a=new THREE.Mesh(new THREE.CapsuleGeometry(0.052,0.5,3,6),jacket);a.position.y=-0.30;j.add(a);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(0.045,7,7),skin);h.position.y=-0.60;j.add(h);
+    j.rotation.z=sx*0.06;g.add(j);return j;};
+  const armL=mkArm(-1),armR=mkArm(1);
+  // cabeça: crânio levemente oval, olhos, cabelo por estilo
+  const headG=new THREE.Group();headG.position.y=1.615;g.add(headG);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.115,12,10),skin);head.scale.y=1.12;headG.add(head);
+  const eL=new THREE.Mesh(new THREE.SphereGeometry(0.014,6,6),dark);eL.position.set(-0.042,0.012,0.104);headG.add(eL);
+  const eR=new THREE.Mesh(new THREE.SphereGeometry(0.014,6,6),dark);eR.position.set(0.042,0.012,0.104);headG.add(eR);
+  if(style!=='bald'){
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.126,10,7,0,Math.PI*2,0,Math.PI*0.55),hairM);
+    cap.position.y=0.022;cap.scale.y=(style==='flat'?0.55:1);headG.add(cap);
+    if(style==='long'){const back=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.30,0.09),hairM);back.position.set(0,-0.075,-0.085);headG.add(back);}
+    if(style==='bun'){const bun=new THREE.Mesh(new THREE.SphereGeometry(0.05,7,7),hairM);bun.position.set(0,0.075,-0.115);headG.add(bun);}
+  }
+  const hs=look.height||rnd(0.95,1.05); g.scale.set(hs,hs,hs);
+  g.userData.limbs=[legL,legR,armL,armR]; g.userData.headG=headG;
+  return g;
+}
+
 /* ---- player avatar (third-person) ---- */
 function buildPlayer(){
-  avatar=new THREE.Group();
-  const suit=new THREE.MeshStandardMaterial({color:0x222a3c,roughness:.55,metalness:.25,envMapIntensity:.7});
-  const skin=new THREE.MeshStandardMaterial({color:0xc99a72,roughness:.7});
-  const legMat=new THREE.MeshStandardMaterial({color:0x12161d,roughness:.7});
-  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(0.32,0.66,4,8),suit); torso.position.y=1.18; avatar.add(torso);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.25,12,12),skin); head.position.y=1.74; avatar.add(head);
-  const legL=new THREE.Mesh(new THREE.CapsuleGeometry(0.15,0.6,3,6),legMat); legL.position.set(-0.16,0.55,0); avatar.add(legL);
-  const legR=new THREE.Mesh(new THREE.CapsuleGeometry(0.15,0.6,3,6),legMat); legR.position.set(0.16,0.55,0); avatar.add(legR);
-  const armL=new THREE.Mesh(new THREE.CapsuleGeometry(0.11,0.55,3,6),suit); armL.position.set(-0.42,1.18,0); avatar.add(armL);
-  const armR=new THREE.Mesh(new THREE.CapsuleGeometry(0.11,0.55,3,6),suit); armR.position.set(0.42,1.18,0); avatar.add(armR);
-  avatar.userData.limbs=[legL,legR,armL,armR];
+  avatar=makePersonMesh({jacket:0x2a3346,pants:0x20242c,skin:0xd9a97e,hair:0x241a12,style:'short',height:1.02});
   avatar.position.copy(playerPos); scene.add(avatar);
 }
 
