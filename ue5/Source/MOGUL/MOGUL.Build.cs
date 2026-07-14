@@ -19,17 +19,10 @@ public class MOGUL : ModuleRules
 			"GameplayTasks"
 		});
 
-		// Mass / AI / procedural systems (see docs/10-TECHNICAL-ARCHITECTURE.md).
-		// Kept as Private so the spine compiles even before these are wired into gameplay.
-		PrivateDependencyModuleNames.AddRange(new string[]
-		{
-			"MassEntity",
-			"MassCommon",
-			"MassSpawner",
-			"StructUtils",
-			"StateTreeModule",
-			"GameplayStateTreeModule",
-			"SmartObjectsModule"
-		});
+		// Mass/StateTree/SmartObjects stay enabled as PLUGINS in the .uproject, but
+		// only become module dependencies when code that uses them lands. This keeps
+		// the first build green across engine-version module renames (e.g. StructUtils
+		// was absorbed into Core in 5.5+ and no longer resolves as a module in 5.6).
+		PrivateDependencyModuleNames.AddRange(new string[] { });
 	}
 }
