@@ -10,6 +10,9 @@ Isto é um **scaffold de pré-produção**, não o build AAA final. Ele estabele
 
 ## Como abrir
 
+> 🚀 **Primeira vez? Siga o [SETUP.md](SETUP.md)** — guia passo a passo completo (Visual Studio,
+> download do repo, primeira compilação, ver a Cena Meridian e o que fazer se der erro).
+
 1. Instale o **Unreal Engine 5.6** (Epic Games Launcher).
 2. Clique com o botão direito em `MOGUL.uproject` → **Generate Visual Studio project files** (ou use o Rider).
 3. Abra `MOGUL.uproject`. Se pedir para compilar os módulos, aceite (**Yes**).
