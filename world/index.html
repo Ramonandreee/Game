@@ -256,18 +256,36 @@ function newGame(){
   S={day:1,cash:1400,energy:10,maxEnergy:10,stress:8,
      skills:{negotiation:10,charisma:12,finance:8,leadership:8},
      rep:{market:5,talent:5,public:6},
-     companies:[],contacts:[],phase:1,phaseName:"Sobrevivência",
+     companies:[],contacts:[],rivals:[],phase:1,phaseName:"Sobrevivência",
      market:{cycle:"estável",mult:1.0,rate:6.0,mood:0,target:1.0},
-     over:false,won:false,peakNet:0,founded:0,hires:0,
+     over:false,won:false,peakNet:0,founded:0,hires:0,acquisitions:0,ipos:0,
      metIds:[],   // interactable world NPCs already turned into contacts
   };
+  for(let i=0;i<4;i++)S.rivals.push(genRival()); // concorrentes-IA já vivem no mercado
   save();
 }
+function coName(n){const a=["Nova","Apex","Vertex","Lumen","Iron","Atlas","Meridian","Cobalt","Halcyon","Orion","Vanta","Praxis","Zenith"];
+  const b={tech:["Labs","AI","Soft","Stack","Systems"],real:["Group","Works","Industries","Logistics","Build"],soft:["Media","Health","Studio","House"]};
+  return pick(a)+" "+pick(b[n.family]);}
+function genRival(){const n=pick(NICHES);
+  return {id:"rv"+Date.now()+ri(0,99999),name:coName(n),niche:n.id,value:Math.round(rnd(40000,500000)),drift:rnd(0.985,1.04)};}
+function rivalTick(){ // concorrentes vivem sozinhos: crescem, quebram, surgem novos
+  if(!S.rivals)S.rivals=[];const mf=0.55+S.market.mult*0.45;
+  for(let i=S.rivals.length-1;i>=0;i--){const r=S.rivals[i];
+    r.value=Math.max(8000,Math.round(r.value*r.drift*rnd(0.97,1.04)*mf));
+    if(chance(0.012)){S.rivals.splice(i,1);log("📉 A concorrente "+r.name+" quebrou e saiu do mercado.");}}
+  if(S.rivals.length<6&&chance(0.12)){const r=genRival();S.rivals.push(r);log("🏢 Uma nova concorrente surgiu: "+r.name+".");}}
 function skillAvg(){return (S.skills.negotiation+S.skills.charisma+S.skills.finance+S.skills.leadership)/4;}
 function roleFit(e,n){if(!n)return 1;if(e.fam==="any")return 1.05;return e.fam===n.family?1.18:0.9;}
+function coSynergy(co){ // império maior se reforça; mesmo setor se reforça ainda mais
+  const n=S.companies.length; if(n<=1)return 1;
+  let s=1+Math.min(0.22,(n-1)*0.045);                  // horizontal: cada empresa a mais soma força
+  const nn=NICHES.find(x=>x.id===co.niche);
+  if(nn&&S.companies.some(c=>c!==co&&(NICHES.find(x=>x.id===c.niche)||{}).family===nn.family))s+=0.06; // mesma família
+  return s;}
 function coRevenue(co){const n=NICHES.find(x=>x.id===co.niche);let emp=0;co.employees.forEach(e=>emp+=e.competence*0.012*roleFit(e,n));
   const rep=1+(S.rep.market-5)*0.012+(S.rep.public-5)*0.006;const ops=0.45+co.ops/100*0.95;const f=1+(skillAvg()-8)*0.01;
-  return Math.max(0,co.baseRev*(1+emp)*ops*S.market.mult*rep*f*co.scale);}
+  return Math.max(0,co.baseRev*(1+emp)*ops*S.market.mult*rep*f*co.scale*coSynergy(co));}
 function coCosts(co){let s=0;co.employees.forEach(e=>s+=e.salary);return s+co.overhead;}
 function coProfit(co){return coRevenue(co)-coCosts(co);}
 function coValue(co){const n=NICHES.find(x=>x.id===co.niche);const annual=coProfit(co)*365;
@@ -293,11 +311,11 @@ function remember(p,t){p.memory.unshift(t);if(p.memory.length>3)p.memory.length=
 function endDay(){
   if(S.over)return;
   let coNet=0;
-  S.companies.forEach(co=>{co.age=(co.age||0)+1;coNet+=coProfit(co);co.ops=clamp(co.ops-rnd(0.4,1.2),0,100);
+  S.companies.forEach(co=>{co.age=(co.age||0)+1;coNet+=coProfit(co);co.ops=clamp(co.ops-(co.managed?rnd(0.05,0.4):rnd(0.4,1.2)),0,100); // gerente segura a operação
     co.scale*=rnd(0.998,1.004);const n=NICHES.find(x=>x.id===co.niche);
     if(chance(n.risk*0.05)){co.scale*=rnd(.82,.93);log("Tropeço na "+co.name+": um problema comeu parte da receita.");}});
   S.cash+=coNet;const bills=dailyExpenses();S.cash-=bills;
-  employeeTick();marketTick();
+  employeeTick();marketTick();rivalTick();
   S.energy=clamp(S.maxEnergy-Math.floor(S.stress/25),3,S.maxEnergy);
   if(S.stress>80&&chance(0.25)){S.stress=clamp(S.stress-30,0,100);log("Seu corpo cobrou a conta — um susto te obrigou a parar.");}
   if(S.day>2&&chance(0.4))fireEvent();
@@ -1357,9 +1375,13 @@ function openBusiness(){
   if(S.companies.length) h+="<button class='opt' onclick='__hire()'><div class='t'>🧑‍💼 Entrevistar & contratar</div><div class='d'>Talento puxa receita. (custa energia)</div></button>";
   h+="<div class='mt'></div>";
   if(!S.companies.length) h+="<div class='empty'>Você ainda não tem empresas.</div>";
-  else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const rev=coRevenue(co),prof=rev-coCosts(co),val=coValue(co);
-    h+="<div class='row' style='flex-wrap:wrap'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+" <span class='tag'>"+n.name+"</span></div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"/100</div><div class='bar' style='max-width:220px'><i style='width:"+Math.round(co.ops)+"%'></i></div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/dia</div></div>"+
-      "<div style='flex-basis:100%;display:flex;gap:8px;margin-top:9px'><button class='btn ghost small' onclick=\"__op('"+co.id+"')\">📈 Tocar operação (-3⚡)</button><button class='btn ghost small' onclick=\"__sell('"+co.id+"')\">🏷️ Vender</button></div></div>";});
+  else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const rev=coRevenue(co),prof=rev-coCosts(co),val=coValue(co);const syn=coSynergy(co);
+    const badges=(co.managed?" <span class='tag'>🧑‍✈️ gerida</span>":"")+(co.public?" <span class='tag'>📊 aberta</span>":"")+(co.acquired?" <span class='tag'>🦈 adquirida</span>":"")+(syn>1.001?" <span class='tag' style='color:var(--gold)'>sinergia ×"+syn.toFixed(2)+"</span>":"");
+    h+="<div class='row' style='flex-wrap:wrap'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+" <span class='tag'>"+n.name+"</span>"+badges+"</div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"/100</div><div class='bar' style='max-width:220px'><i style='width:"+Math.round(co.ops)+"%'></i></div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/dia</div></div>"+
+      "<div style='flex-basis:100%;display:flex;gap:8px;margin-top:9px;flex-wrap:wrap'><button class='btn ghost small' onclick=\"__op('"+co.id+"')\">📈 Tocar operação (-3⚡)</button>"+
+      (co.managed?"":"<button class='btn ghost small' onclick=\"__manage('"+co.id+"')\">🧑‍✈️ Contratar gerente</button>")+
+      (val>=500000&&!co.public?"<button class='btn ghost small' onclick=\"__ipo('"+co.id+"')\">📊 IPO</button>":"")+
+      "<button class='btn ghost small' onclick=\"__sell('"+co.id+"')\">🏷️ Vender</button></div></div>";});
   modal("💼","Negócios","",null);$("panel").querySelector('.body').innerHTML=h;
 }
 window.__found=()=>{
@@ -1373,9 +1395,6 @@ function foundCompany(id,cost){const n=NICHES.find(x=>x.id===id);S.cash-=cost;
   const co={id:"co"+Date.now()+ri(0,999),name:coName(n),niche:id,baseRev:base,ops:42,scale:1,employees:[],overhead:Math.round(base*0.3),age:0};
   S.companies.push(co);S.founded++;S.stress=clamp(S.stress+6,0,100);
   log("🏢 Você fundou "+co.name+" ("+n.name+"). -"+money(cost));toast("Empresa fundada: "+co.name);checkPhase();save();refreshHUD();openBusiness();}
-function coName(n){const a=["Nova","Apex","Vertex","Lumen","Iron","Atlas","Meridian","Cobalt","Halcyon","Orion","Vanta","Praxis","Zenith"];
-  const b={tech:["Labs","AI","Soft","Stack","Systems"],real:["Group","Works","Industries","Logistics","Build"],soft:["Media","Health","Studio","House"]};
-  return pick(a)+" "+pick(b[n.family]);}
 window.__hire=()=>{
   if(S.energy<3)return toast("Sem energia para entrevistar hoje.");
   const cands=[genPerson(true),genPerson(true),genPerson(true)];
@@ -1393,6 +1412,40 @@ window.__sell=id=>{const co=S.companies.find(c=>c.id===id);if(!co)return;const v
   modal("🏷️","Vender "+co.name,"<p>Comprador-IA avalia em <b style='color:var(--gold)'>"+moneyFull(v)+"</b>.</p>",[
     {t:"✅ Vender por "+moneyFull(v),d:"Exit.",fn:()=>{S.cash+=v;S.companies=S.companies.filter(c=>c.id!==id);log("Você vendeu a "+co.name+" por "+money(v)+".");toast("Exit: "+money(v));checkPhase();save();refreshHUD();openBusiness();}},
     {t:"↩ Manter",d:"",fn:openBusiness}]);};
+/* ---- M&A: adquirir concorrente-IA (crescer por aquisição) ---- */
+function doAcquire(r){
+  if(!S.rivals)S.rivals=[];const idx=S.rivals.indexOf(r);if(idx<0)return null;
+  const price=Math.round(r.value*1.35);if(S.cash<price)return null;
+  S.cash-=price;const n=NICHES.find(x=>x.id===r.niche);
+  const co={id:"co"+Date.now()+ri(0,999),name:r.name,niche:r.niche,
+    baseRev:rnd(n.base[0],n.base[1])*(1+r.value/250000),ops:55,scale:1+r.value/400000,
+    employees:[],overhead:0,age:30,acquired:true};
+  co.overhead=Math.round(coRevenue(co)*0.32);
+  for(let k=0;k<ri(2,5);k++){const e=genPerson(true);e.fam=n.family;co.employees.push(e);} // equipe herdada
+  S.companies.push(co);S.rivals.splice(idx,1);S.rep.market=clamp(S.rep.market+3,0,100);S.founded++;S.acquisitions=(S.acquisitions||0)+1;
+  return co;}
+window.__acquire=id=>{const r=(S.rivals||[]).find(x=>x.id===id);if(!r)return;const price=Math.round(r.value*1.35);
+  modal("🦈","Adquirir "+r.name,"<p>A <b>"+r.name+"</b> vale ~"+money(r.value)+". Comprá-la custa <b style='color:var(--gold)'>"+moneyFull(price)+"</b> (prêmio de aquisição). Vira sua — com receita e equipe.</p><p class='small dim'>Caixa: <b style='color:var(--green)'>"+moneyFull(S.cash)+"</b></p>",[
+    {t:(S.cash>=price?"✅ Adquirir por "+moneyFull(price):"⚠ Caixa insuficiente"),d:"M&A — a fantasia shark.",disabled:S.cash<price,fn:()=>{const co=doAcquire(r);if(co){log("🦈 Aquisição! Você comprou a "+co.name+" por "+money(price)+". Integre bem — ou destrua valor.");toast("Adquirida: "+co.name);checkPhase();save();refreshHUD();openPhone('market');}else toast("Caixa insuficiente");}},
+    {t:"↩ Voltar",d:"",fn:()=>openPhone('market')}]);};
+/* ---- delegação: contratar gerente (a operação para de decair) ---- */
+window.__manage=id=>{const co=S.companies.find(c=>c.id===id);if(!co||co.managed)return;
+  const sal=Math.round(80+coRevenue(co)*0.12);
+  const mgr=genPerson(true);mgr.role="Gerente Geral";mgr.fam="any";mgr.salary=sal;mgr.competence=Math.max(mgr.competence,68);mgr.isManager=true;
+  co.employees.push(mgr);co.managed=true;S.hires++;
+  log("🧑‍✈️ "+mgr.name+" assumiu como gerente da "+co.name+". A operação para de decair sozinha — você ganhou tempo.");
+  toast("Gerente contratado");save();refreshHUD();openBusiness();};
+/* ---- IPO: abrir capital na Meridian Exchange ---- */
+function doIPO(co){ // mutação isolada (testável); retorna o valor captado
+  if(!co||co.public)return 0;const raise=Math.round(coValue(co)*1.4);
+  S.cash+=raise;co.public=true;co.scale*=0.9;S.rep.market=clamp(S.rep.market+5,0,100);S.rep.public=clamp(S.rep.public+8,0,100);S.ipos=(S.ipos||0)+1;
+  return raise;}
+window.__ipo=id=>{const co=S.companies.find(c=>c.id===id);if(!co||co.public)return;
+  const val=coValue(co);if(val<500000)return toast("Empresa pequena demais para IPO (mín. "+money(500000)+").");
+  const raise=Math.round(val*1.4);
+  modal("📊","Abrir capital — "+co.name,"<p>Levar a <b>"+co.name+"</b> à bolsa (Meridian Exchange) capta <b style='color:var(--gold)'>"+moneyFull(raise)+"</b> agora. Em troca: diluição e escrutínio público.</p>",[
+    {t:"📈 Fazer o IPO ("+moneyFull(raise)+")",d:"Caixa massivo + reputação.",fn:()=>{const got=doIPO(co);log("📊 "+co.name+" abriu capital na Meridian Exchange! Captou "+money(got)+". Você tocou o sino.");toast("IPO! +"+money(got));checkPhase();save();refreshHUD();openBusiness();}},
+    {t:"↩ Ainda não",d:"",fn:openBusiness}]);};
 
 /* --- networking --- */
 function openNetwork(p){
@@ -1428,11 +1481,18 @@ function renderPhoneTab(){const el=$("ptab");if(!el)return;let h="";
     [["market","Mercado"],["talent","Como chefe"],["public","Pública"]].forEach(([k,l])=>h+="<div style='margin-bottom:8px'><div class='small' style='display:flex;justify-content:space-between'><span>"+l+"</span><span class='dim'>"+Math.round(S.rep[k])+"</span></div><div class='bar'><i style='width:"+S.rep[k]+"%;background:linear-gradient(90deg,#5aa9f0,#7fc0ff)'></i></div></div>");
   } else if(phoneTab==='empire'){
     if(!S.companies.length)h="<div class='empty'>Sem empresas. Vá ao The Foundry (marcador azul) para fundar uma.</div>";
-    else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const prof=coProfit(co),val=coValue(co);
-      h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+"</div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"</div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/d</div></div></div>";});
+    else S.companies.forEach(co=>{const n=NICHES.find(x=>x.id===co.niche);const prof=coProfit(co),val=coValue(co);const syn=coSynergy(co);
+      const badges=(co.managed?" <span class='tag'>🧑‍✈️</span>":"")+(co.public?" <span class='tag'>📊</span>":"")+(syn>1.001?" <span class='tag' style='color:var(--gold)'>×"+syn.toFixed(2)+"</span>":"");
+      h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+co.name+badges+"</div><div class='m'>"+co.employees.length+" func · op "+Math.round(co.ops)+"</div></div><div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>"+(prof>=0?"+":"")+money(prof)+"/d</div></div></div>";});
   } else if(phoneTab==='market'){
     const m=S.market;h+="<div class='kpis'>"+kpi("Ciclo",m.cycle.toUpperCase(),m.cycle==="recessão"?"var(--red)":m.cycle==="aquecido"?"var(--green)":"var(--gold)")+kpi("Multiplicador","×"+m.mult.toFixed(2))+kpi("Juros",m.rate.toFixed(1)+"%")+kpi("Humor",m.mood>.2?"otimista":m.mood<-.2?"pessimista":"neutro")+"</div>";
     h+="<div class='small muted'>O mercado vive sozinho. Recessão derruba receita e valuations; boom premia coragem.</div>";
+    h+="<div class='small dim' style='margin:12px 0 4px'>🦈 Alvos de aquisição (M&A)</div>";
+    h+="<div class='small muted' style='margin-bottom:8px'>Concorrentes-IA vivem sozinhas: crescem, quebram, surgem. Compre uma para crescer por aquisição — vem com receita e equipe.</div>";
+    const rivals=(S.rivals||[]).slice().sort((a,b)=>b.value-a.value);
+    if(!rivals.length)h+="<div class='empty'>Nenhuma concorrente no radar agora.</div>";
+    else rivals.forEach(r=>{const n=NICHES.find(x=>x.id===r.niche);const price=Math.round(r.value*1.35);
+      h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+r.name+" <span class='tag'>"+n.name+"</span></div><div class='m'>valuation "+money(r.value)+" · aquisição ~"+money(price)+"</div></div><div class='side'><button class='btn ghost small' onclick=\"__acquire('"+r.id+"')\">🦈 Adquirir</button></div></div>";});
   } else if(phoneTab==='rede'){
     if(!S.contacts.length)h="<div class='empty'>Você ainda não converteu ninguém em contato fixo.<br>Aborde as pessoas com anel dourado na cidade (tecla E).</div>";
     else S.contacts.forEach((c,i)=>h+="<div class='row'><div class='av'>"+c.name[0]+"</div><div class='info'><div class='n'>"+c.name+"</div><div class='m'>"+c.role+" · "+relLabel(c.rel)+"</div></div><div class='side'><div class='big'>"+Math.round(c.rel)+"</div></div></div>");
@@ -1491,7 +1551,9 @@ function animate(){
 /* ============================ BOOT ============================ */
 function boot(){
   const saved=load();
-  if(saved&&!saved.over){S=saved;S.name=S.name||"Você";}
+  if(saved&&!saved.over){S=saved;S.name=S.name||"Você";
+    if(!S.rivals){S.rivals=[];for(let i=0;i<4;i++)S.rivals.push(genRival());} // migração: save antigo sem M&A
+  }
   else{newGame();S.name="Você";}
   initThree();
   try{newObjective();}catch(e){console.error('objective',e);}
