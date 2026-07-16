@@ -575,26 +575,29 @@ function collideCity(pos,radius){
 function makeWindowTexture(style){
   // per-district window languages (default keeps the original look; office uses it)
   const styles={
-    default:{gx:11,gy:13,cw:7,ch:8, lit:.55,warmP:.45,darkF:.18},
-    glass:  {gx:11,gy:12,cw:9,ch:10,lit:.78,warmP:.12,darkF:.06},  // curtain-wall: quase tudo aceso, frio
-    tech:   {gx:11,gy:13,cw:7,ch:8, lit:.60,warmP:.25,darkF:.12},
-    res:    {gx:12,gy:15,cw:6,ch:7, lit:.38,warmP:.80,darkF:.30},  // janelas menores, quentes, muitas apagadas
-    ind:    {gx:14,gy:22,cw:9,ch:6, lit:.16,warmP:.70,darkF:.50},  // galpões: raras janelas industriais
-    lux:    {gx:12,gy:14,cw:7,ch:9, lit:.50,warmP:.75,darkF:.15},
+    default:{gx:11,gy:13,cw:7,ch:8, lit:.40,warmP:.45,darkF:.32,colD:.22},
+    glass:  {gx:11,gy:12,cw:9,ch:10,lit:.54,warmP:.15,darkF:.22,colD:.16},  // curtain-wall: mais aceso, frio, mas não 100%
+    tech:   {gx:11,gy:13,cw:7,ch:8, lit:.42,warmP:.28,darkF:.30,colD:.22},
+    res:    {gx:12,gy:15,cw:6,ch:7, lit:.30,warmP:.82,darkF:.44,colD:.28},  // residencial: muitas apagadas, quentes
+    ind:    {gx:14,gy:22,cw:9,ch:6, lit:.12,warmP:.70,darkF:.55,colD:.30},  // galpões: raras janelas industriais
+    lux:    {gx:12,gy:14,cw:7,ch:9, lit:.40,warmP:.78,darkF:.30,colD:.22},
   };
   const p=styles[style]||styles.default;
   const c=document.createElement('canvas');c.width=128;c.height=256;const g=c.getContext('2d');
   g.fillStyle='#070a0f';g.fillRect(0,0,128,256);
   const warm=['#ffd9a0','#ffce86','#ffb866'], cool=['#bcd8ff','#9fc4ff','#d6e6ff'];
+  // colunas (linhas de escritórios) que ficam majoritariamente apagadas -> quebra a "grade uniforme"
+  const cols=[]; for(let x=6;x<128;x+=p.gx) cols.push(Math.random()<p.colD);
   for(let y=6;y<256;y+=p.gy){
-    const floorDark=Math.random()<p.darkF;
+    const floorDark=Math.random()<p.darkF;                 // andares inteiros apagados (prédio dorme)
+    let ci=0;
     for(let x=6;x<128;x+=p.gx){
-      const r=Math.random();
-      if(floorDark? r<p.lit*0.2 : r<p.lit){
+      const litP=p.lit*(floorDark?0.14:1)*(cols[ci++]?0.22:1); // ocupação real: minoria acesa
+      if(Math.random()<litP){
         g.fillStyle=(Math.random()<p.warmP?warm:cool)[Math.floor(Math.random()*3)];
-        g.globalAlpha=0.55+Math.random()*0.45;
+        g.globalAlpha=0.38+Math.random()*0.44;             // brilho variado (janelas não são todas iguais)
         g.fillRect(x,y,p.cw,p.ch);
-      } else { g.fillStyle='#0c1118'; g.globalAlpha=1; g.fillRect(x,y,p.cw,p.ch); }
+      } else { g.fillStyle='#0b0f16'; g.globalAlpha=1; g.fillRect(x,y,p.cw,p.ch); }
     }
   }
   g.globalAlpha=1;
@@ -1150,7 +1153,7 @@ function tryClub(){
 }
 
 /* ---- day/night ---- */
-const NIGHT={sky:new THREE.Color(0x060912),fog:new THREE.Color(0x080c16),sun:new THREE.Color(0x35425f),hemiSky:new THREE.Color(0x1c2848),sunI:0.14,hemiI:0.32,emis:1.25};
+const NIGHT={sky:new THREE.Color(0x060912),fog:new THREE.Color(0x080c16),sun:new THREE.Color(0x35425f),hemiSky:new THREE.Color(0x1c2848),sunI:0.14,hemiI:0.32,emis:0.95};
 const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0xb9d2ec),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.30,hemiI:0.72,emis:0.03};
 const DUSK={sky:new THREE.Color(0x1a2742),fog:new THREE.Color(0x33344e),sun:new THREE.Color(0xff9a5c),hemiSky:new THREE.Color(0x445071),sunI:0.66,hemiI:0.52,emis:0.55};
 function lerpC(a,b,t,out){out.r=a.r+(b.r-a.r)*t;out.g=a.g+(b.g-a.g)*t;out.b=a.b+(b.b-a.b)*t;return out;}
