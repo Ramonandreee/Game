@@ -1006,20 +1006,30 @@ function makePersonMesh(look){
   const style=look.style||pick(['short','flat','long','bun','bald']);
   // pernas articuladas no quadril (grupos giram no pivô anatômico certo)
   const mkLeg=(sx)=>{const j=new THREE.Group();j.position.set(sx*0.115,0.88,0);
-    const l=new THREE.Mesh(new THREE.CapsuleGeometry(0.082,0.6,3,6),pants);l.position.y=-0.38;j.add(l);
+    const l=new THREE.Mesh(new THREE.CapsuleGeometry(0.072,0.62,3,7),pants);l.position.y=-0.38;j.add(l);
     const s=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.07,0.24),shoes);s.position.set(0,-0.75,0.045);j.add(s);
     g.add(j);return j;};
   const legL=mkLeg(-1),legR=mkLeg(1);
-  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(0.155,0.42,4,8),jacket);torso.position.y=1.14;g.add(torso);
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.09,0.09,7),skin);collar.position.y=1.47;g.add(collar);
-  // braços articulados no ombro, com mãos
-  const mkArm=(sx)=>{const j=new THREE.Group();j.position.set(sx*0.235,1.40,0);
-    const a=new THREE.Mesh(new THREE.CapsuleGeometry(0.052,0.5,3,6),jacket);a.position.y=-0.30;j.add(a);
-    const h=new THREE.Mesh(new THREE.SphereGeometry(0.045,7,7),skin);h.position.y=-0.60;j.add(h);
-    j.rotation.z=sx*0.06;g.add(j);return j;};
+  // TRONCO cônico: peito mais largo que a cintura (V atlético limpo, sem caroços de cápsula)
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.142,0.108,0.52,14),jacket);torso.position.y=1.16;g.add(torso);
+  const chestCap=new THREE.Mesh(new THREE.SphereGeometry(0.142,14,9),jacket);chestCap.scale.set(1,0.46,0.82);chestCap.position.y=1.40;g.add(chestCap);
+  const hipCap=new THREE.Mesh(new THREE.SphereGeometry(0.112,12,8),pants);hipCap.scale.set(1,0.5,0.85);hipCap.position.y=0.92;g.add(hipCap);
+  // ombros enxutos + pescoço real (a cabeça deixa de afundar no tronco)
+  const shoulders=new THREE.Mesh(new THREE.CapsuleGeometry(0.05,0.20,3,8),jacket);shoulders.rotation.z=Math.PI/2;shoulders.position.y=1.44;g.add(shoulders);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.049,0.058,0.11,10),skin);neck.position.y=1.52;g.add(neck);
+  // braços em repouso: braço + antebraço (leve flexão no cotovelo) + mão
+  const mkArm=(sx)=>{const j=new THREE.Group();j.position.set(sx*0.172,1.45,0);
+    const up=new THREE.Mesh(new THREE.CapsuleGeometry(0.046,0.30,3,7),jacket);up.position.y=-0.20;j.add(up);
+    const fore=new THREE.Mesh(new THREE.CapsuleGeometry(0.042,0.28,3,7),jacket);fore.position.y=-0.50;j.add(fore);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),skin);h.position.y=-0.70;h.scale.set(0.85,1.15,0.7);j.add(h);
+    j.rotation.x=0.05;j.rotation.z=sx*0.04;g.add(j);return j;};
   const armL=mkArm(-1),armR=mkArm(1);
+  if(look.shirt!=null){ // camisa clara sob o paletó aberto (gola em V + placket) => contraste do protagonista
+    const sm=new THREE.MeshStandardMaterial({color:look.shirt,roughness:.5});
+    const shirt=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.26,0.02),sm);shirt.position.set(0,1.28,0.118);g.add(shirt);
+    const cv=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.05,0.10,3),sm);cv.position.set(0,1.44,0.10);cv.rotation.x=0.3;g.add(cv);}
   // cabeça: crânio levemente oval, olhos, cabelo por estilo
-  const headG=new THREE.Group();headG.position.y=1.615;g.add(headG);
+  const headG=new THREE.Group();headG.position.y=1.63;g.add(headG);
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.115,12,10),skin);head.scale.y=1.12;headG.add(head);
   const eL=new THREE.Mesh(new THREE.SphereGeometry(0.014,6,6),dark);eL.position.set(-0.042,0.012,0.104);headG.add(eL);
   const eR=new THREE.Mesh(new THREE.SphereGeometry(0.014,6,6),dark);eR.position.set(0.042,0.012,0.104);headG.add(eR);
@@ -1036,7 +1046,7 @@ function makePersonMesh(look){
 
 /* ---- player avatar (third-person) ---- */
 function buildPlayer(){
-  avatar=makePersonMesh({jacket:0x2a3346,pants:0x20242c,skin:0xd9a97e,hair:0x241a12,style:'short',height:1.02});
+  avatar=makePersonMesh({jacket:0x3a4658,pants:0x272c38,skin:0xe0b48a,hair:0x2a1e14,shirt:0xc2ccda,style:'short',height:1.03});
   avatar.position.copy(playerPos); scene.add(avatar);
 }
 
