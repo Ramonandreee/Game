@@ -471,17 +471,24 @@ function buildCity(){
   // roads: real asphalt (grain, patches, edge lines, dashed centre) + instanced curbs
   const roadMat=new THREE.MeshStandardMaterial({map:makeAsphaltTexture(),roughness:.6,metalness:.15,envMapIntensity:0.5}); // pista com sheen molhado
   const roadGeo=new THREE.PlaneGeometry(12,BOUND*2);
-  const curbs=[];
-  for(let i=-BOUND;i<=BOUND;i+=40){
+  for(let i=-BOUND;i<=BOUND;i+=40){ // ruas: planos de 12 de largura formam a grade
     const v=new THREE.Mesh(roadGeo,roadMat);v.rotation.x=-Math.PI/2;v.position.set(i,0.02,0);scene.add(v);
     const h=new THREE.Mesh(roadGeo,roadMat);h.rotation.set(-Math.PI/2,0,Math.PI/2);h.position.set(0,0.02,i);scene.add(h);
-    curbs.push({x:i-7.5,z:0,a:'z'},{x:i+7.5,z:0,a:'z'},{x:0,z:i-7.5,a:'x'},{x:0,z:i+7.5,a:'x'});
+  }
+  // meios-fios/calçadas em SEGMENTOS por quadra, com vão na interseção — NÃO atravessam mais a rua transversal
+  const curbs=[]; const CURBO=7.5, CURBL=40-2*CURBO; // segmento de 25 centrado na quadra; cruzamento fica livre
+  for(let i=-BOUND;i<=BOUND;i+=40){
+    for(let j=-BOUND;j<BOUND;j+=40){ const c=j+20;
+      curbs.push({x:i-CURBO,z:c,sx:3,sz:CURBL});   // meio-fio da rua vertical (corre em Z, parte na quadra)
+      curbs.push({x:i+CURBO,z:c,sx:3,sz:CURBL});
+      curbs.push({x:c,z:i-CURBO,sx:CURBL,sz:3});   // meio-fio da rua horizontal (corre em X, parte na quadra)
+      curbs.push({x:c,z:i+CURBO,sx:CURBL,sz:3});
+    }
   }
   const unitBox=new THREE.BoxGeometry(1,1,1);
-  const curbInst=new THREE.InstancedMesh(unitBox,new THREE.MeshStandardMaterial({color:0x272d35,roughness:.92}),curbs.length);
+  const curbInst=new THREE.InstancedMesh(unitBox,new THREE.MeshStandardMaterial({color:0x2b333d,roughness:.9}),curbs.length);
   { const m=new THREE.Matrix4(),q=new THREE.Quaternion();
-    curbs.forEach((cb,i)=>{const s=cb.a==='z'?new THREE.Vector3(3,0.14,BOUND*2):new THREE.Vector3(BOUND*2,0.14,3);
-      m.compose(new THREE.Vector3(cb.x,0.07,cb.z),q,s);curbInst.setMatrixAt(i,m);});
+    curbs.forEach((cb,i)=>{m.compose(new THREE.Vector3(cb.x,0.07,cb.z),q,new THREE.Vector3(cb.sx,0.14,cb.sz));curbInst.setMatrixAt(i,m);});
     curbInst.instanceMatrix.needsUpdate=true; }
   scene.add(curbInst);
   // districts get real architectural identity: material + window style + massing
@@ -493,7 +500,7 @@ function buildCity(){
     lux:  {tex:'lux',  color:0x322c1f,rough:.50,metal:.30,emis:0xffe2b0,emisScale:.95, envScale:1.6}, // Goldhaven: pedra clara/elegante
   };
   const buckets={glass:[],tech:[],res:[],ind:[],lux:[]};
-  const roof=[],beac=[],ant=[],shops=[];
+  const roof=[],beac=[],ant=[],shops=[],feat=[];
   colliders.length=0;
   for(let x=-BOUND+20;x<BOUND;x+=40){
     for(let z=-BOUND+20;z<BOUND;z+=40){
@@ -509,6 +516,7 @@ function buildCity(){
       const h=rnd(hR[0],hR[1]), w=rnd(14,24), d=rnd(14,24);
       const shade=Math.round((0.72+Math.random()*0.28)*255);
       buckets[style].push({x:bx,z:bz,w,d,h,shade});
+      feat.push({x:bx,z:bz,w,d,h,style}); // p/ relevo de fachada (pilastras de canto + cornija)
       colliders.push({x:bx,z:bz,hw:w/2,hd:d/2}); // sólido: não dá p/ atravessar
       const shopP={glass:.8,tech:.85,lux:.9,res:.4,ind:.08}[style];
       if(chance(shopP)) shops.push({x:bx,z:bz,w,d,warm:(style==='res'||style==='lux'||chance(.4))}); // vitrine no térreo
@@ -532,6 +540,21 @@ function buildCity(){
     scene.add(inst); buildingMats.push(mmat); if(!firstMat)firstMat=mmat;
   }
   buildingMat=firstMat;
+  // relevo de fachada: pilastras de canto (moldura vertical) + cornija no topo (define a linha do telhado)
+  if(feat.length){
+    const pierMat=new THREE.MeshStandardMaterial({color:0x181c22,roughness:.82,metalness:.2,envMapIntensity:.35});
+    const pInst=new THREE.InstancedMesh(unitBox,pierMat,feat.length*4);
+    const cornMat=new THREE.MeshStandardMaterial({color:0x2c333d,roughness:.7,metalness:.28,envMapIntensity:.6});
+    const cInst=new THREE.InstancedMesh(unitBox,cornMat,feat.length);
+    const m=new THREE.Matrix4(),q=new THREE.Quaternion();const corners=[[-1,-1],[1,-1],[-1,1],[1,1]];let pi=0;
+    feat.forEach((f,i)=>{
+      const pw=(f.style==='glass'?1.9:1.4), hh=f.h*0.99;              // torre de vidro: mullion mais forte
+      for(const cn of corners){ m.compose(new THREE.Vector3(f.x+cn[0]*f.w/2,hh/2,f.z+cn[1]*f.d/2),q,new THREE.Vector3(pw,hh,pw));pInst.setMatrixAt(pi++,m);}
+      const ch=clamp(f.h*0.02,0.8,1.6);                               // cornija fina, levemente saliente
+      m.compose(new THREE.Vector3(f.x,f.h-ch*0.5,f.z),q,new THREE.Vector3(f.w+0.9,ch,f.d+0.9));cInst.setMatrixAt(i,m);
+    });
+    pInst.instanceMatrix.needsUpdate=true;cInst.instanceMatrix.needsUpdate=true;scene.add(pInst);scene.add(cInst);
+  }
   // rooftop life: clutter, antennas, aviation beacons (bloom picks the reds up at night)
   if(roof.length){const rInst=new THREE.InstancedMesh(unitBox,new THREE.MeshStandardMaterial({color:0x3a414b,roughness:.9,metalness:.2}),roof.length);
     const m=new THREE.Matrix4(),q=new THREE.Quaternion();
