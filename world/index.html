@@ -414,7 +414,7 @@ function initThree(){
   try{ renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=exposure; }catch(e){}
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x0b1018);
-  scene.fog=new THREE.FogExp2(0x0b1018,0.0036); // atmospheric depth
+  scene.fog=new THREE.FogExp2(0x0b1018,0.0041); // atmospheric depth (torres distantes desbotam no horizonte)
   camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,1600);
   camera.position.set(-150,EYE,150);
   playerPos=new THREE.Vector3(-150,0,150);
@@ -911,7 +911,7 @@ function setupGraphics(){
     scene.environment=pmrem.fromEquirectangular(eqt).texture;
     eqt.dispose(); pmrem.dispose();
     const bms=buildingMats.length?buildingMats:(buildingMat?[buildingMat]:[]);
-    for(const bm of bms){bm.envMapIntensity=0.22*((bm.userData&&bm.userData.envScale)||1);}
+    for(const bm of bms){bm.envMapIntensity=0.32*((bm.userData&&bm.userData.envScale)||1);} // vidro reflete mais o céu (realismo)
   }catch(e){console.error('env',e);}
   // bloom — the single biggest "alive at night" win (neon windows/lights glow)
   composer=new EffectComposer(renderer);
@@ -1140,9 +1140,9 @@ function tryClub(){
 }
 
 /* ---- day/night ---- */
-const NIGHT={sky:new THREE.Color(0x05080f),fog:new THREE.Color(0x05080f),sun:new THREE.Color(0x2a3550),hemiSky:new THREE.Color(0x1a2440),sunI:0.12,hemiI:0.28,emis:1.7};
-const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0x9fc0e8),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.25,hemiI:0.7,emis:0.04};
-const DUSK={sky:new THREE.Color(0x171526),fog:new THREE.Color(0x241a2e),sun:new THREE.Color(0xff8a4e),hemiSky:new THREE.Color(0x453858),sunI:0.55,hemiI:0.42,emis:0.95};
+const NIGHT={sky:new THREE.Color(0x060912),fog:new THREE.Color(0x080c16),sun:new THREE.Color(0x35425f),hemiSky:new THREE.Color(0x1c2848),sunI:0.14,hemiI:0.32,emis:1.25};
+const DAY={sky:new THREE.Color(0x9fc0e8),fog:new THREE.Color(0xb9d2ec),sun:new THREE.Color(0xffe6b0),hemiSky:new THREE.Color(0xaecbf0),sunI:1.30,hemiI:0.72,emis:0.03};
+const DUSK={sky:new THREE.Color(0x1a2742),fog:new THREE.Color(0x33344e),sun:new THREE.Color(0xff9a5c),hemiSky:new THREE.Color(0x445071),sunI:0.66,hemiI:0.52,emis:0.55};
 function lerpC(a,b,t,out){out.r=a.r+(b.r-a.r)*t;out.g=a.g+(b.g-a.g)*t;out.b=a.b+(b.b-a.b)*t;return out;}
 let _c=new THREE.Color();
 function updateDayNight(dt){
@@ -1178,7 +1178,7 @@ function makeGlowTex(){
 function makeSkyTex(zen,hor,gnd){
   const c=document.createElement('canvas');c.width=8;c.height=256;const g=c.getContext('2d');
   const grd=g.createLinearGradient(0,0,0,256);
-  grd.addColorStop(0,zen);grd.addColorStop(0.50,hor);grd.addColorStop(0.56,gnd);grd.addColorStop(1,gnd);
+  grd.addColorStop(0,zen);grd.addColorStop(0.34,zen);grd.addColorStop(0.50,hor);grd.addColorStop(0.545,hor);grd.addColorStop(0.56,gnd);grd.addColorStop(1,gnd);
   g.fillStyle=grd;g.fillRect(0,0,8,256);return new THREE.CanvasTexture(c);
 }
 function skyPalette(){
@@ -1187,7 +1187,7 @@ function skyPalette(){
   else if(T<0.75){A=DAY;B=DUSK;t=(T-0.5)/0.25;}else{A=DUSK;B=NIGHT;t=(T-0.75)/0.25;}
   const mix=(a,b)=>{const c=new THREE.Color();c.r=a.r+(b.r-a.r)*t;c.g=a.g+(b.g-a.g)*t;c.b=a.b+(b.b-a.b)*t;return c;};
   const zen=mix(A.sky,B.sky), sunc=mix(A.sun,B.sun);
-  const hor=new THREE.Color(); hor.r=clamp(zen.r*0.5+sunc.r*0.6,0,1); hor.g=clamp(zen.g*0.5+sunc.g*0.45,0,1); hor.b=clamp(zen.b*0.55+sunc.b*0.4,0,1);
+  const hor=new THREE.Color(); hor.r=clamp(zen.r*0.42+sunc.r*0.78,0,1); hor.g=clamp(zen.g*0.5+sunc.g*0.5,0,1); hor.b=clamp(zen.b*0.62+sunc.b*0.3,0,1);
   const nightF=(A===NIGHT)?(1-t):((B===NIGHT)?t:0);
   return {zen,hor,sunc,nightF};
 }
