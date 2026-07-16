@@ -465,11 +465,11 @@ function makeAsphaltTexture(){
 }
 function buildCity(){
   // ground
-  groundMat=new THREE.MeshStandardMaterial({color:0x0e1216,roughness:0.95,metalness:0.0});
+  groundMat=new THREE.MeshStandardMaterial({color:0x0e1216,roughness:0.68,metalness:0.2,envMapIntensity:0.5}); // asfalto com leve brilho (reflete céu/neon)
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(BOUND*2+200,BOUND*2+200),groundMat);
   ground.rotation.x=-Math.PI/2;scene.add(ground);
   // roads: real asphalt (grain, patches, edge lines, dashed centre) + instanced curbs
-  const roadMat=new THREE.MeshStandardMaterial({map:makeAsphaltTexture(),roughness:.9,metalness:0});
+  const roadMat=new THREE.MeshStandardMaterial({map:makeAsphaltTexture(),roughness:.6,metalness:.15,envMapIntensity:0.5}); // pista com sheen molhado
   const roadGeo=new THREE.PlaneGeometry(12,BOUND*2);
   const curbs=[];
   for(let i=-BOUND;i<=BOUND;i+=40){
@@ -1131,7 +1131,7 @@ function buildRain(){
   const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
   rain=new THREE.Points(geo,new THREE.PointsMaterial({color:0xaecbe8,size:0.5,transparent:true,opacity:0.5})); rain.visible=false; scene.add(rain);
 }
-function setWeather(w){ weather=w; if(rain)rain.visible=(w==='rain'); if(groundMat){ groundMat.roughness=(w==='rain')?0.28:0.95; groundMat.envMapIntensity=(w==='rain')?0.9:0.3; groundMat.needsUpdate=true; } toast(w==='rain'?'🌧️ Começou a chover':'🌤️ O tempo limpou'); }
+function setWeather(w){ weather=w; if(rain)rain.visible=(w==='rain'); if(groundMat){ groundMat.roughness=(w==='rain')?0.18:0.68; groundMat.envMapIntensity=(w==='rain')?1.2:0.5; groundMat.needsUpdate=true; } toast(w==='rain'?'🌧️ Começou a chover':'🌤️ O tempo limpou'); }
 function updateWeather(dt){
   weatherTimer-=dt; if(weatherTimer<=0){ weatherTimer=rnd(60,140); setWeather(chance(0.4)?'rain':'clear'); }
   if(rain&&rain.visible){ const cx=isDriving&&activeCar?activeCar.pos.x:(playerPos?playerPos.x:0), cz=isDriving&&activeCar?activeCar.pos.z:(playerPos?playerPos.z:0);
