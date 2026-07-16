@@ -476,6 +476,7 @@ function buildCity(){
   };
   const buckets={glass:[],tech:[],res:[],ind:[],lux:[]};
   const roof=[],beac=[],ant=[],shops=[];
+  colliders.length=0;
   for(let x=-BOUND+20;x<BOUND;x+=40){
     for(let z=-BOUND+20;z<BOUND;z+=40){
       const bx=x+ri(-6,6), bz=z+ri(-6,6);
@@ -490,9 +491,10 @@ function buildCity(){
       const h=rnd(hR[0],hR[1]), w=rnd(14,24), d=rnd(14,24);
       const shade=Math.round((0.72+Math.random()*0.28)*255);
       buckets[style].push({x:bx,z:bz,w,d,h,shade});
+      colliders.push({x:bx,z:bz,hw:w/2,hd:d/2}); // sólido: não dá p/ atravessar
       const shopP={glass:.8,tech:.85,lux:.9,res:.4,ind:.08}[style];
       if(chance(shopP)) shops.push({x:bx,z:bz,w,d,warm:(style==='res'||style==='lux'||chance(.4))}); // vitrine no térreo
-      if(style==='glass'&&h>80&&chance(.7)) buckets.glass.push({x:bx,z:bz,w:w+rnd(6,10),d:d+rnd(6,10),h:rnd(8,14),shade}); // pódio da torre
+      if(style==='glass'&&h>80&&chance(.7)){ const pw=w+rnd(6,10),pd=d+rnd(6,10); buckets.glass.push({x:bx,z:bz,w:pw,d:pd,h:rnd(8,14),shade}); colliders.push({x:bx,z:bz,hw:pw/2,hd:pd/2}); } // pódio da torre (mais largo)
       if(h<95){const n=ri(1,3);for(let k=0;k<n;k++)roof.push({x:bx+rnd(-w*0.3,w*0.3),z:bz+rnd(-d*0.3,d*0.3),y:h,s:rnd(1.4,3.4)});} // AC/caixa d'água
       if(h>=95) beac.push({x:bx,z:bz,y:h+1.2});                                            // luz de aviação
       if(h>=30&&chance(.35)) ant.push({x:bx+rnd(-3,3),z:bz+rnd(-3,3),y:h,l:rnd(4,9)});     // antenas
@@ -537,6 +539,21 @@ function buildCity(){
   }
 }
 let buildingMat=null; const buildingMats=[];
+const colliders=[]; // AABBs de prédios {x,z,hw,hd} p/ colisão (mundo é eixo-alinhado)
+function collideCity(pos,radius){
+  // empurra `pos` p/ fora de qualquer prédio; resolve pelo eixo de menor penetração
+  let hit=false;
+  for(let i=0;i<colliders.length;i++){const c=colliders[i];
+    const ex=c.hw+radius, ez=c.hd+radius;      // AABB expandido pelo raio do corpo
+    const dx=pos.x-c.x, dz=pos.z-c.z;
+    if(dx>-ex&&dx<ex&&dz>-ez&&dz<ez){          // dentro da caixa expandida => colidiu
+      const px=ex-Math.abs(dx), pz=ez-Math.abs(dz); // penetração em cada eixo
+      if(px<pz){ pos.x=c.x+(dx<0?-ex:ex); } else { pos.z=c.z+(dz<0?-ez:ez); } // saída mínima
+      hit=true;
+    }
+  }
+  return hit;
+}
 function makeWindowTexture(style){
   // per-district window languages (default keeps the original look; office uses it)
   const styles={
@@ -849,6 +866,7 @@ function updateDriving(dt){
   if(Math.abs(car.speed)>0.4) car.heading+=st*turn*dt*clamp(car.speed/12,-1,1);
   car.pos.x=clamp(car.pos.x+Math.cos(car.heading)*car.speed*dt,-BOUND+4,BOUND-4);
   car.pos.z=clamp(car.pos.z+Math.sin(car.heading)*car.speed*dt,-BOUND+4,BOUND-4);
+  if(collideCity(car.pos,1.7)){ car.speed*=-0.18; if(Math.abs(car.speed)<3)car.speed=0; blip(90,0.06,'square'); } // bate no prédio: quica e perde velocidade
   car.group.position.copy(car.pos); car.group.rotation.y=Math.PI/2-car.heading;
   const fx=Math.cos(car.heading),fz=Math.sin(car.heading);
   camera.position.lerp(new THREE.Vector3(car.pos.x-fx*9,4.6,car.pos.z-fz*9),0.18);
@@ -1283,7 +1301,7 @@ function updateMovement(dt){
     playerPos.x+=(fx*my+rx*mx)*sp; playerPos.z+=(fz*my+rz*mx)*sp;
   }
   if(inOffice){ playerPos.x=clamp(playerPos.x,OFFICE.x-22,OFFICE.x+22); playerPos.z=clamp(playerPos.z,-17,17); $("sLoc").textContent="Sua sede"; }
-  else { playerPos.x=clamp(playerPos.x,-BOUND+6,BOUND-6); playerPos.z=clamp(playerPos.z,-BOUND+6,BOUND-6); $("sLoc").textContent=districtAt(playerPos.x,playerPos.z); }
+  else { playerPos.x=clamp(playerPos.x,-BOUND+6,BOUND-6); playerPos.z=clamp(playerPos.z,-BOUND+6,BOUND-6); collideCity(playerPos,0.55); $("sLoc").textContent=districtAt(playerPos.x,playerPos.z); }
   playerPos.y=0;
   // camera: first- or third-person
   if(camMode==='fps'){
