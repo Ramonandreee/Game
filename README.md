@@ -1,7 +1,7 @@
-# MOGUL
+# Business Simulator
 ### *A Business Empire Life Simulator*
 
-> **Codinome de produção:** Project ATLAS
+> **Codinome de produção:** Project ATLAS · *(nos documentos de design e no scaffold UE5, o projeto ainda aparece pelo codinome interno “MOGUL”)*
 > **Tagline:** *"Você não administra um império. Você vive um."*
 > **Documento:** Bíblia de Pré-Produção — v1.0 (Confidencial)
 > **Data:** Junho de 2026
@@ -30,13 +30,13 @@ A versão de *profundidade de sistemas*: mesmo loop, com mais ferramentas de ges
 
 ---
 
-## O que é MOGUL
+## O que é Business Simulator
 
-**MOGUL** é um simulador de vida empresarial em mundo aberto, single-player no núcleo e com uma camada online persistente, construído na **Unreal Engine 5.6**. O jogador não opera planilhas: ele encarna um ser humano que parte de um apartamento minúsculo e de um computador velho e, ao longo de décadas de tempo de jogo, ascende — ou fracassa — na tentativa de construir um império de negócios em **Meridian City**, uma metrópole global viva.
+**Business Simulator** é um simulador de vida empresarial em mundo aberto, single-player no núcleo e com uma camada online persistente, construído na **Unreal Engine 5.6**. O jogador não opera planilhas: ele encarna um ser humano que parte de um apartamento minúsculo e de um computador velho e, ao longo de décadas de tempo de jogo, ascende — ou fracassa — na tentativa de construir um império de negócios em **Meridian City**, uma metrópole global viva.
 
 A fantasia central não é "ganhar dinheiro". É **sentir a ascensão**: a primeira contratação, o primeiro escritório, a primeira aquisição hostil, a primeira capa de revista, a primeira fundação filantrópica, o primeiro herdeiro. Cada conquista é **visível no mundo**. Cada erro gera **consequências persistentes**.
 
-MOGUL combina três pilares de gênero que nunca foram fundidos nesta escala:
+Business Simulator combina três pilares de gênero que nunca foram fundidos nesta escala:
 
 1. **Open-World Life Sim** (densidade urbana e presença física à la Rockstar/CDPR).
 2. **Deep Business/Economy Simulation** (profundidade sistêmica à la Paradox).
@@ -88,7 +88,7 @@ Todos os documentos derivam destes fatos. Alterações aqui propagam para toda a
 
 | Campo | Valor |
 |-------|-------|
-| **Título** | MOGUL |
+| **Título** | Business Simulator |
 | **Subtítulo** | A Business Empire Life Simulator |
 | **Codinome** | Project ATLAS |
 | **Gênero** | Open-World Business Life Simulation RPG |
