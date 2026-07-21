@@ -7,12 +7,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MOGUL">
+<meta name="apple-mobile-web-app-title" content="Business Simulator">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
-<title>MOGUL — A Business Empire Life Simulator</title>
+<title>Business Simulator</title>
 <style>
-  /* ===== MOGUL Design System — tokens (8px grid, premium palette) ===== */
+  /* ===== Business Simulator Design System — tokens (8px grid, premium palette) ===== */
   :root{
     --bg-0:#070a0e; --bg-1:#0b0f15; --bg-2:#0e131a;
     --surface:rgba(255,255,255,.022); --surface-2:rgba(255,255,255,.05);
@@ -214,7 +214,7 @@
   <!-- ============ START SCREEN ============ -->
   <div id="start" class="splash">
     <div class="tag">Project Atlas · Vertical Slice</div>
-    <h1>MOGUL</h1>
+    <h1>Business Simulator</h1>
     <div class="tag">A Business Empire Life Simulator</div>
     <p class="lead">Você acorda num apartamento apertado em <b>The Boroughs</b>, com um computador velho, alguns trocados e uma ambição que não cabe no quarto. Meridian City não está nem aí pra você — ainda. Da sobrevivência ao legado: construa um império.</p>
     <div class="field">
@@ -223,14 +223,14 @@
     </div>
     <div style="width:100%;max-width:520px"><label class="dim small" style="text-transform:uppercase;letter-spacing:.8px">De onde você vem</label></div>
     <div class="bgs" id="bgs"></div>
-    <button class="btn gold big" style="max-width:520px;margin-top:16px" onclick="MOGUL.begin()">Começar a jornada →</button>
-    <button class="btn ghost" style="margin-top:4px" onclick="MOGUL.loadSave()" id="loadbtn">Continuar jogo salvo</button>
+    <button class="btn gold big" style="max-width:520px;margin-top:16px" onclick="BizSim.begin()">Começar a jornada →</button>
+    <button class="btn ghost" style="margin-top:4px" onclick="BizSim.loadSave()" id="loadbtn">Continuar jogo salvo</button>
   </div>
 
   <!-- ============ GAME ============ -->
   <div id="game" class="hidden">
     <div class="topbar">
-      <div class="brand"><b>MOGUL</b><span id="pn"></span></div>
+      <div class="brand"><b>Business Simulator</b><span id="pn"></span></div>
       <div class="phase" id="phaseBadge">Fase 1 · Sobrevivência</div>
       <div class="stats">
         <div class="stat"><div class="k">Dia</div><div class="v" id="sDay">1</div></div>
@@ -245,14 +245,14 @@
       <div>
         <div class="tabs" id="tabs"></div>
         <div class="card"><div class="bd" id="view"></div></div>
-        <button class="btn gold big mt" id="endDayBtn" onclick="MOGUL.endDay()">Encerrar o dia ⏾</button>
+        <button class="btn gold big mt" id="endDayBtn" onclick="BizSim.endDay()">Encerrar o dia ⏾</button>
       </div>
       <div class="card">
         <div class="hd"><h2>📰 Meridian Feed</h2><span class="sub" id="cycleLbl"></span></div>
         <div class="bd feed" id="feed"></div>
       </div>
     </div>
-    <div class="footer">MOGUL — protótipo jogável · salvamento automático · <span onclick="MOGUL.hardReset()" style="cursor:pointer;text-decoration:underline">reiniciar</span></div>
+    <div class="footer">Business Simulator — protótipo jogável · salvamento automático · <span onclick="BizSim.hardReset()" style="cursor:pointer;text-decoration:underline">reiniciar</span></div>
   </div>
 </div>
 
@@ -264,8 +264,8 @@
 (function(){
 "use strict";
 /* =========================================================================
-   MOGUL — playable prototype.  Single-file, no dependencies.
-   Pure-ish game logic + DOM render, exposed on window.MOGUL for testing.
+   Business Simulator — playable prototype.  Single-file, no dependencies.
+   Pure-ish game logic + DOM render, exposed on window.BizSim for testing.
    ========================================================================= */
 
 const SAVE_KEY = "mogul_save_v1";
@@ -968,7 +968,7 @@ function render(){
   $("cycleLbl").textContent="Mercado: "+S.market.cycle+" · juros "+S.market.rate.toFixed(1)+"%";
   $("endDayBtn").textContent= S.energy>=3 ? "Encerrar o dia ⏾" : "Encerrar o dia (energia baixa) ⏾";
   // tabs
-  $("tabs").innerHTML=TABS.map(t=>"<div class='tab"+(S.view===t.id?" on":"")+"' onclick=\"MOGUL.setView('"+t.id+"')\">"+t.t+"</div>").join("");
+  $("tabs").innerHTML=TABS.map(t=>"<div class='tab"+(S.view===t.id?" on":"")+"' onclick=\"BizSim.setView('"+t.id+"')\">"+t.t+"</div>").join("");
   // view
   $("view").innerHTML=({today:vToday,empire:vEmpire,network:vNetwork,market:vMarket,you:vYou}[S.view]||vToday)();
   // feed
@@ -976,7 +976,7 @@ function render(){
 }
 
 function actionBtn(ico,title,desc,cost,handler,disabled){
-  return "<button class='act' "+(disabled?"disabled":"")+" onclick=\"MOGUL."+handler+"\">"+
+  return "<button class='act' "+(disabled?"disabled":"")+" onclick=\"BizSim."+handler+"\">"+
     "<div class='ico'>"+ico+"</div><div class='meat'><div class='t'>"+title+"</div><div class='d'>"+desc+"</div></div>"+
     "<div class='cost'>"+cost+"</div></button>";
 }
@@ -1006,10 +1006,10 @@ function vEmpire(){
       "<div class='side'><div class='big' style='color:var(--gold)'>"+money(val)+"</div>"+
       "<div>receita/dia "+money(rev)+"</div><div style='color:"+(prof>=0?"var(--green)":"var(--red)")+"'>lucro/dia "+(prof>=0?"+":"")+money(prof)+"</div></div>"+
       "<div style='flex-basis:100%;display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'>"+
-        "<button class='btn ghost small' onclick=\"MOGUL.investCompany('"+co.id+"')\">📈 Tocar operação (-3⚡)</button>"+
-        (co.managed?"":"<button class='btn ghost small' onclick=\"MOGUL.manageCompany('"+co.id+"')\">🧑‍✈️ Contratar gerente</button>")+
-        ((val>500000&&!co.public)?"<button class='btn ghost small' onclick=\"MOGUL.ipo('"+co.id+"')\">📊 IPO</button>":"")+
-        "<button class='btn ghost small' onclick=\"MOGUL.sellCompany('"+co.id+"')\">🏷️ Vender</button>"+
+        "<button class='btn ghost small' onclick=\"BizSim.investCompany('"+co.id+"')\">📈 Tocar operação (-3⚡)</button>"+
+        (co.managed?"":"<button class='btn ghost small' onclick=\"BizSim.manageCompany('"+co.id+"')\">🧑‍✈️ Contratar gerente</button>")+
+        ((val>500000&&!co.public)?"<button class='btn ghost small' onclick=\"BizSim.ipo('"+co.id+"')\">📊 IPO</button>":"")+
+        "<button class='btn ghost small' onclick=\"BizSim.sellCompany('"+co.id+"')\">🏷️ Vender</button>"+
       "</div>";
     if(co.employees.length){
       h+="<div style='flex-basis:100%;margin-top:10px;border-top:1px solid var(--line);padding-top:8px'>";
@@ -1028,7 +1028,7 @@ function vNetwork(){
   let h="<div class='small dim' style='margin-bottom:10px'>Suas relações. Cultive antes de pedir — agentes lembram de tudo.</div>";
   S.contacts.forEach((c,i)=>{
     const k=c.kind==="investor"?"💰 Investidor":c.kind==="talent"?"🧠 Talento":"🤝 Cliente";
-    h+="<div class='row' onclick=\"MOGUL.openContact("+i+")\" style='cursor:pointer'>"+
+    h+="<div class='row' onclick=\"BizSim.openContact("+i+")\" style='cursor:pointer'>"+
       "<div class='av'>"+(c.name[0])+"</div>"+
       "<div class='info'><div class='n'>"+c.name+" <span class='tag'>"+k+"</span></div>"+
       "<div class='m'>"+c.role+" · "+money(c.wealth)+" · "+c.traits[0]+"</div>"+
@@ -1050,7 +1050,7 @@ function vMarket(){
   h+="<div class='small dim' style='margin-bottom:8px'>Empresas rivais vivem sozinhas: crescem, quebram, surgem. Compre uma para crescer por aquisição (M&A).</div>";
   if(!S.rivals.length) h+="<div class='empty'>Nenhuma concorrente no radar.</div>";
   else S.rivals.forEach(r=>{const n=NICHES.find(x=>x.id===r.niche);const price=Math.round(r.value*1.35);
-    h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+r.name+" <span class='tag'>"+n.name+"</span></div><div class='m'>valuation "+money(r.value)+" · aquisição ~"+money(price)+"</div></div><div class='side'><button class='btn ghost small' onclick=\"MOGUL.acquireRival('"+r.id+"')\">🦈 Adquirir</button></div></div>";});
+    h+="<div class='row'><div class='av'>"+n.ico+"</div><div class='info'><div class='n'>"+r.name+" <span class='tag'>"+n.name+"</span></div><div class='m'>valuation "+money(r.value)+" · aquisição ~"+money(price)+"</div></div><div class='side'><button class='btn ghost small' onclick=\"BizSim.acquireRival('"+r.id+"')\">🦈 Adquirir</button></div></div>";});
   h+="<div class='hd' style='border:0;padding:10px 0 8px'><h2>Setores de Meridian</h2></div>";
   NICHES.forEach(n=>{
     const owned=S.companies.some(c=>c.niche===n.id);
@@ -1091,7 +1091,7 @@ function modal(ico,title,bodyHtml,opts){
   $("modal").innerHTML=
     "<div class='top'><div class='ico'>"+ico+"</div><div><div class='k'>"+(S?("Dia "+S.day):"")+"</div><h3>"+title+"</h3></div></div>"+
     "<div class='body'>"+bodyHtml+"</div>"+
-    "<div class='opts'>"+modalOpts.map((o,i)=>"<button class='opt' "+(o.disabled?"disabled style='opacity:.45;cursor:not-allowed'":"")+" onclick=\"MOGUL.modalPick("+i+")\"><div class='ot'>"+o.ot+"</div>"+(o.od?"<div class='od'>"+o.od+"</div>":"")+"</button>").join("")+"</div>";
+    "<div class='opts'>"+modalOpts.map((o,i)=>"<button class='opt' "+(o.disabled?"disabled style='opacity:.45;cursor:not-allowed'":"")+" onclick=\"BizSim.modalPick("+i+")\"><div class='ot'>"+o.ot+"</div>"+(o.od?"<div class='od'>"+o.od+"</div>":"")+"</button>").join("")+"</div>";
   $("scrim").classList.add("on");
 }
 function modalPick(i){const o=modalOpts[i];if(o&&!o.disabled&&o.fn)o.fn();}
@@ -1120,7 +1120,7 @@ function hasSave(){ return !!load(); }
 let chosenBg="hustler";
 function renderStart(){
   if(typeof document==="undefined")return;
-  $("bgs").innerHTML=BACKGROUNDS.map(b=>"<div class='bgo"+(b.id===chosenBg?" on":"")+"' onclick=\"MOGUL.chooseBg('"+b.id+"')\"><div class='bt'>"+b.t+"</div><div class='bd'>"+b.d+"</div><div class='bb'>"+b.buff+"</div></div>").join("");
+  $("bgs").innerHTML=BACKGROUNDS.map(b=>"<div class='bgo"+(b.id===chosenBg?" on":"")+"' onclick=\"BizSim.chooseBg('"+b.id+"')\"><div class='bt'>"+b.t+"</div><div class='bd'>"+b.d+"</div><div class='bb'>"+b.buff+"</div></div>").join("");
   $("loadbtn").style.display=hasSave()?"":"none";
 }
 function chooseBg(id){chosenBg=id;renderStart();}
@@ -1168,7 +1168,7 @@ function showGameOver(){
         kpi("Fase alcançada",S.phaseName)+
       "</div>"+
     "</div>"+
-    "<div class='opts'><button class='opt' onclick=\"MOGUL.hardReset()\"><div class='ot'>🔄 Nova jornada</div><div class='od'>Começar de novo, do apartamento apertado.</div></button></div>";
+    "<div class='opts'><button class='opt' onclick=\"BizSim.hardReset()\"><div class='ot'>🔄 Nova jornada</div><div class='od'>Começar de novo, do apartamento apertado.</div></button></div>";
   $("scrim").classList.add("on");
 }
 
@@ -1241,7 +1241,7 @@ function openInvestPick(){
   modal("📈","Tocar qual operação?","<p>Escolha a empresa onde você vai colocar a mão na massa hoje.</p>",opts);
 }
 
-if(typeof window!=="undefined") window.MOGUL=API;
+if(typeof window!=="undefined") window.BizSim=API;
 if(typeof module!=="undefined" && module.exports) module.exports=API;
 
 // auto-init in browser

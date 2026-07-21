@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>MOGUL — Distrito (protótipo 2D)</title>
+<title>Business Simulator — Distrito (protótipo 2D)</title>
 <style>
   :root{
     --wood:#4a3524; --wood2:#3a2919; --wood-edge:#241810; --wood-hi:#6a4d33;
@@ -89,9 +89,9 @@
 
 <script>
 /* ============================================================
-   MOGUL — Distrito · protótipo 2D top-down (pixel art)
+   Business Simulator — Distrito · protótipo 2D top-down (pixel art)
    Núcleo visual primeiro: mapa + prédios + funcionários + HUD.
-   (economia MOGUL entra na próxima etapa)
+   (economia Business Simulator entra na próxima etapa)
    ============================================================ */
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
 let W=innerWidth, H=innerHeight, DPR=Math.min(devicePixelRatio||1,2);
@@ -279,7 +279,7 @@ function genWorld(){
   for(let i=0;i<24;i++){const gx=(rr()*MAPW)|0,gy=(rr()*MAPH)|0;if(map[gy][gx]===0)decor.push({kind:'rock',gx,gy,spr:rockSprites[(rr()*rockSprites.length)|0]});}
   // fountain centerpiece in the plaza
   decor.push({kind:'fountain',gx:cxA,gy:cyA,spr:fountain});
-  // sede do jogador (marco) + empresas iniciais do distrito — fundadas com a economia MOGUL de verdade
+  // sede do jogador (marco) + empresas iniciais do distrito — fundadas com a economia Business Simulator de verdade
   placeSede(cxA-4,cyA-4);
   const starters=[['ai',cxA+3,cyA-5,3],['saas',cxA-8,cyA+3,2],['logi',cxA+3,cyA+3,4],['retail',cxA-5,cyA+3,2],['fintech',cxA-8,cyA-5,2],['media',cxA+7,cyA+3,2],['health',cxA+7,cyA-5,3]];
   for(const st of starters){const co=foundCompany(st[0],st[1],st[2],0,true);for(let k=0;k<st[3];k++)addEmployee(co);}
@@ -371,7 +371,7 @@ cv.addEventListener('pointerup',e=>{dragging=false;cv.classList.remove('drag');
   if(placing&&!dragMoved){tryPlace(gx,gy);return;}
   if(!dragMoved){const b=buildingAt(gx,gy);if(b){if(b.co)openCompany(b.co);else if(b.sede)openSede();}}});
 
-/* ============================ ECONOMIA MOGUL (portada e validada) ============================ */
+/* ============================ ECONOMIA Business Simulator (portada e validada) ============================ */
 const rnd=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>a+((Math.random()*(b-a+1))|0), chance=p=>Math.random()<p, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), pick=a=>a[(Math.random()*a.length)|0];
 function money(n){n=Math.round(n);const s=n<0?'-':'';n=Math.abs(n);if(n>=1e6)return s+'$'+(n/1e6).toFixed(n>=1e7?0:1)+'M';if(n>=1e3)return s+'$'+(n/1e3).toFixed(n>=1e4?0:1)+'k';return s+'$'+n;}
 function moneyFull(n){n=Math.round(n);const s=n<0?'-':'';return s+'$'+Math.abs(n).toLocaleString('pt-BR');}
@@ -469,7 +469,7 @@ function openMarket(){const m=S.market;
    [{t:'↩ Fechar',fn:closeModal}]);
   document.querySelectorAll('.lrow[data-rv]').forEach(el=>el.onclick=()=>{const r=(S.rivals||[]).find(x=>x.id===el.dataset.rv);if(!r)return;const price=Math.round(r.value*1.35);if(S.cash<price)return toast('Caixa insuficiente');const co=doAcquire(r);if(co){toast('🦈 Adquiriu '+co.name);checkPhase();refreshHUD();openMarket();}});}
 function openObjectives(){const o=currentObjective();modal('📋','Objetivos · Fase '+S.phase+' ('+S.phaseName+')',o.objs.map(ob=>{const p=Math.min(100,ob.cur/ob.max*100);return '<div class="lab"><span>'+ob.lab+'</span><b>'+(ob.money?money(ob.cur)+'/'+money(ob.max):ob.cur+'/'+ob.max)+'</b></div><div class="bar g"><i style="width:'+p+'%"></i></div>';}).join(''),[{t:'↩ Fechar',fn:closeModal}]);}
-function openSettings(){modal('⚙️','Ajustes','<p class="small">Protótipo 2D top-down · a economia MOGUL validada rodando por baixo dos prédios.</p>',[{t:'🔄 Reiniciar jogo',d:'Começa do zero',fn:()=>location.reload()},{t:'↩ Fechar',fn:closeModal}]);}
+function openSettings(){modal('⚙️','Ajustes','<p class="small">Business Simulator · protótipo 2D top-down, com a economia validada rodando por baixo dos prédios.</p>',[{t:'🔄 Reiniciar jogo',d:'Começa do zero',fn:()=>location.reload()},{t:'↩ Fechar',fn:closeModal}]);}
 function gameOver(){modal('💀','Falência','<p>Os credores venceram. Patrimônio de pico: <b style="color:var(--gold)">'+money(S.peakNet)+'</b> · '+S.day+' dias.</p>',[{t:'🔄 Recomeçar',fn:()=>location.reload()}]);}
 /* objetivos dinâmicos (por fase) */
 function currentObjective(){const p=S.phase,net=netWorth();const np=PHASES.find(ph=>ph.n===p+1);const emp=workers.filter(w=>w.co).length;
