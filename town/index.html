@@ -166,7 +166,18 @@ function fountainSprite(){const S=18;const {c,g}=makeCanvas(S*AP,S*AP);
   return {c,ox:9,oy:15};}
 const treeSprites=[treeSprite(11),treeSprite(23),treeSprite(37),treeSprite(51)];
 const rockSprites=[rockSprite(9),rockSprite(19)];
-const fountain=fountainSprite();
+function lampSprite(){const S=6,SH=20;const {c,g}=makeCanvas(S*AP,SH*AP);
+  g.fillStyle='rgba(0,0,0,0.16)';g.fillRect(1*AP,18*AP,4*AP,1*AP);
+  P(g,2,4,2,15,'#3a3026');P(g,2,4,1,15,'#4a4032');           // poste
+  P(g,1,1,4,4,'#2a241c');P(g,1,1,4,1,'#4a4032');             // luminária
+  P(g,2,2,2,2,'#ffe6a0');                                     // luz quente
+  return {c,ox:3,oy:18};}
+function cropSprite(seed){const S=TILE/AP,r=rngSeed(seed);const {c,g}=makeCanvas(TILE,TILE);
+  g.fillStyle='#7a5a38';g.fillRect(0,0,TILE,TILE);                  // terra arada
+  for(let y=2;y<16;y+=3){P(g,1,y,14,1,'#6a4a2a');for(let x=2;x<15;x+=3)P(g,x,y-1,1,1,r()<.7?'#4f8f45':'#6aad5a');} // sulcos + brotos
+  return c;}
+const fountain=fountainSprite(), lamp=lampSprite();
+const cropTiles=[cropSprite(501),cropSprite(517),cropSprite(533)];
 
 /* ---- building sprites (pixel art, procedural) ---- */
 // each returns {c, wt, ht} where wt/ht = footprint in tiles; sprite is taller than footprint (roof)
@@ -193,16 +204,20 @@ function bldStartup(){ // casa/loja de startup (saas) 2x2, telhado azul
   P(g,14,4,4,7,'#8a6a4a'); // chimney/sign post
   P(g,11,6,10,3,'#e8c060'); // sign
   return {c,wt,ht,ox:16,oy:36,name:'startup'};}
-function bldFactory(){ // fábrica/logística 3x2
-  const wt=3,ht=2,S=48,SH=44;const {c,g}=makeCanvas(S*AP,SH*AP);
+function bldFactory(){ // fábrica/logística 3x2 — galpão industrial (não castelo)
+  const wt=3,ht=2,S=48,SH=42;const {c,g}=makeCanvas(S*AP,SH*AP);
   g.fillStyle='rgba(0,0,0,0.20)';g.fillRect(4*AP,(SH-4)*AP,40*AP,3*AP);
-  P(g,5,20,38,20,'#9a8f80');P(g,5,20,38,2,'#b0a596');P(g,5,38,38,2,'#7a6f60');
-  // sawtooth roof
-  for(let x=6;x<42;x+=8){P(g,x,12,8,8,'#7a6a58');P(g,x,12,4,8,'#8a7a66');P(g,x+4,13,3,3,'#8fd0e8');}
-  // big door
-  P(g,20,28,10,12,'#5a4a38');P(g,21,29,8,10,'#3a2e20');
-  // smokestack
-  P(g,36,6,4,14,'#7a6a58');P(g,36,6,4,2,'#9a8a76');
+  // corpo de parede metálica clara + corrugação vertical
+  P(g,5,18,38,22,'#9aa0a6');P(g,5,18,38,2,'#b4bac0');P(g,5,38,38,2,'#7a8086');
+  for(let x=7;x<43;x+=4)P(g,x,20,1,18,'#8a9096');
+  // telhado plano industrial com beiral + clarabóias
+  P(g,3,12,42,7,'#6a7076');P(g,3,12,42,2,'#828890');P(g,3,17,42,2,'#565c62');
+  for(let x=8;x<40;x+=8)P(g,x,13,5,3,'#bfe0f0');
+  // portão de carga grande
+  P(g,19,26,11,14,'#4a4e54');P(g,20,27,9,12,'#3a3e44');for(let y=28;y<39;y+=2)P(g,20,y,9,1,'#2e3238');
+  // janelinhas + faixa de sinalização + exaustor
+  P(g,8,22,5,4,'#a8d8f0');P(g,35,22,5,4,'#a8d8f0');P(g,5,24,38,1,'#e8b84a');
+  P(g,37,6,4,7,'#6a7076');P(g,36,5,6,2,'#828890');
   return {c,wt,ht,ox:24,oy:40,name:'factory'};}
 function bldCafe(){ // café (moral dos funcionários) 2x2, toldo listrado
   const wt=2,ht=2,S=32,SH=36;const {c,g}=makeCanvas(S*AP,SH*AP);
@@ -267,6 +282,11 @@ function genWorld(){
   placeSede(cxA-4,cyA-4);
   const starters=[['ai',cxA+3,cyA-5,3],['saas',cxA-8,cyA+3,2],['logi',cxA+3,cyA+3,4],['retail',cxA-5,cyA+3,2],['fintech',cxA-8,cyA-5,2],['media',cxA+7,cyA+3,2],['health',cxA+7,cyA-5,3]];
   for(const st of starters){const co=foundCompany(st[0],st[1],st[2],0,true);for(let k=0;k<st[3];k++)addEmployee(co);}
+  // postes de luz ao longo das avenidas (só em grama livre, fora de prédios)
+  for(let x=3;x<MAPW-2;x+=5){for(const gy of [cyA-1,cyA+2]){if(map[gy]&&map[gy][x]===0&&!buildingAt(x,gy))decor.push({kind:'lamp',gx:x,gy,spr:lamp});}}
+  for(let y=3;y<MAPH-2;y+=5){for(const gx of [cxA-1,cxA+2]){if(map[y]&&map[y][gx]===0&&!buildingAt(gx,y))decor.push({kind:'lamp',gx,gy:y,spr:lamp});}}
+  // hortas/campos (como a vila de referência)
+  for(const cp of [[cxA-13,cyA+6],[cxA-13,cyA+9]]){for(let y=0;y<3;y++)for(let x=0;x<4;x++){const gx=cp[0]+x,gy=cp[1]+y;if(map[gy]&&map[gy][gx]===0){map[gy][gx]=4;for(let i=decor.length-1;i>=0;i--)if(decor[i].gx===gx&&decor[i].gy===gy)decor.splice(i,1);}}}
   // pedestres ambientes (vida na praça)
   const sedeB=buildings[0];for(let k=0;k<8;k++)spawnWorker(sedeB,null);
 }
@@ -278,7 +298,7 @@ function placeBuilding(type,gx,gy){const s=BSPRITES[type];
   const b={type,gx,gy};buildings.push(b);return b;}
 function buildingAt(gx,gy){for(const b of buildings){const s=BSPRITES[b.type];if(gx>=b.gx&&gx<b.gx+s.wt&&gy>=b.gy&&gy<b.gy+s.ht)return b;}return null;}
 function spawnWorker(b,co){const s=BSPRITES[b.type];const cx=(b.gx+s.wt/2)*TILE,cy=(b.gy+s.ht/2)*TILE;
-  const w={x:cx+(Math.random()*2-1)*TILE,y:cy+(Math.random()*1.5)*TILE,tx:0,ty:0,spd:16+Math.random()*10,spr:workerCache[(Math.random()*workerCache.length)|0],home:{cx,cy},co:co||null};
+  const w={x:cx+(Math.random()*2-1)*TILE,y:cy+(Math.random()*1.5)*TILE,tx:0,ty:0,spd:16+Math.random()*10,spr:workerCache[(Math.random()*workerCache.length)|0],home:{cx,cy},co:co||null,ph:Math.random()*6,moving:false,face:1,pause:0};
   pickTarget(w);workers.push(w);return w;}
 function removeWorker(co){for(let i=workers.length-1;i>=0;i--){if(workers[i].co===co){workers.splice(i,1);return;}}}
 function pickTarget(w){w.tx=w.home.cx+(Math.random()*4-2)*TILE;w.ty=w.home.cy+(Math.random()*3-0.5)*TILE;}
@@ -297,7 +317,7 @@ function draw(){
   const x1=Math.min(MAPW,Math.ceil((camX+W)/TILE)), y1=Math.min(MAPH,Math.ceil((camY+H)/TILE));
   // tiles
   for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
-    const t=map[y][x];const arr=t===1?tileCache.path:t===2?tileCache.plaza:t===3?tileCache.water:tileCache.grass;
+    const t=map[y][x];const arr=t===1?tileCache.path:t===2?tileCache.plaza:t===3?tileCache.water:t===4?cropTiles:tileCache.grass;
     const img=arr[((x*3+y*7)%arr.length+arr.length)%arr.length];
     ctx.drawImage(img,Math.round(x*TILE-camX),Math.round(y*TILE-camY));
   }
@@ -305,7 +325,9 @@ function draw(){
   const ents=[];
   for(const d of decor){if(d.gx<x0-2||d.gx>x1+2||d.gy<y0-2||d.gy>y1+2)continue;ents.push({y:d.gy*TILE+TILE,draw:()=>{const sx=Math.round(d.gx*TILE-camX+TILE/2-d.spr.ox*AP),sy=Math.round(d.gy*TILE-camY+TILE-d.spr.oy*AP);ctx.drawImage(d.spr.c,sx,sy);}});}
   for(const b of buildings){const s=BSPRITES[b.type];ents.push({y:(b.gy+s.ht)*TILE,draw:()=>{const sx=Math.round(b.gx*TILE-camX+ (s.wt*TILE)/2 - s.ox*AP),sy=Math.round((b.gy+s.ht)*TILE-camY - s.oy*AP);ctx.drawImage(s.c,sx,sy);}});}
-  for(const w of workers){ents.push({y:w.y,draw:()=>{const sp=w.spr;ctx.drawImage(sp,Math.round(w.x-camX-6*AP),Math.round(w.y-camY-16*AP));}});}
+  for(const w of workers){ents.push({y:w.y,draw:()=>{const sp=w.spr;const bob=w.moving?Math.round(Math.abs(Math.sin(performance.now()*0.011+w.ph))*2*AP):0;
+    const dx=Math.round(w.x-camX-6*AP),dy=Math.round(w.y-camY-16*AP)-bob;
+    if(w.face<0){ctx.save();ctx.translate(dx+sp.width,dy);ctx.scale(-1,1);ctx.drawImage(sp,0,0);ctx.restore();}else ctx.drawImage(sp,dx,dy);}});}
   ents.sort((a,b)=>a.y-b.y);
   for(const e of ents)e.draw();
   // placement ghost
@@ -324,14 +346,15 @@ function drawGhost(){const s=BSPRITES[placing.spr];const ok=footprintFree(placin
 let last=performance.now();
 function loop(now){const dt=Math.min((now-last)/1000,0.05);last=now;
   for(const w of workers){const dx=w.tx-w.x,dy=w.ty-w.y,d=Math.hypot(dx,dy);
-    if(d<3){if(Math.random()<0.02)pickTarget(w);}else{w.x+=dx/d*w.spd*dt;w.y+=dy/d*w.spd*dt;}}
+    if(d<3){w.moving=false;if(w.pause>0){w.pause-=dt;}else if(Math.random()<0.03){pickTarget(w);w.pause=rnd(0.4,2.2);}}
+    else{w.moving=true;if(Math.abs(dx)>0.5)w.face=dx<0?-1:1;w.x+=dx/d*w.spd*dt;w.y+=dy/d*w.spd*dt;}}
   draw();drawMini();
   requestAnimationFrame(loop);}
 
 /* ============================ MINIMAP ============================ */
 const mini=document.getElementById('mini'),mg=mini.getContext('2d');mg.imageSmoothingEnabled=false;
 function drawMini(){const sx=mini.width/MAPW,sy=mini.height/MAPH;mg.fillStyle='#3a5a2a';mg.fillRect(0,0,mini.width,mini.height);
-  for(let y=0;y<MAPH;y++)for(let x=0;x<MAPW;x++){const t=map[y][x];if(t===0)continue;mg.fillStyle=t===1?'#9a7a4a':t===2?'#b9a888':t===3?'#4a82ad':'#3a5a2a';mg.fillRect(x*sx,y*sy,Math.ceil(sx),Math.ceil(sy));}
+  for(let y=0;y<MAPH;y++)for(let x=0;x<MAPW;x++){const t=map[y][x];if(t===0)continue;mg.fillStyle=t===1?'#9a7a4a':t===2?'#b9a888':t===3?'#4a82ad':t===4?'#7a5a38':'#3a5a2a';mg.fillRect(x*sx,y*sy,Math.ceil(sx),Math.ceil(sy));}
   for(const b of buildings){mg.fillStyle=b.type==='hq'?'#e8c060':'#d08a4a';mg.fillRect(b.gx*sx,b.gy*sy,sx*2,sy*2);}
   // viewport rect
   mg.strokeStyle='#f2e4c8';mg.lineWidth=1;mg.strokeRect(camX/TILE*sx,camY/TILE*sy,W/TILE*sx,H/TILE*sy);}
