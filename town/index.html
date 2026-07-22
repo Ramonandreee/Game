@@ -315,13 +315,13 @@ function bake3DBuilding(THREE,spec){
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
   const scene=new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xcfe0ff,0x35301f,0.55));
+  scene.add(new THREE.HemisphereLight(0xcfe0ff,0x45402c,0.75));
   const sun=new THREE.DirectionalLight(0xfff2d8,2.15);sun.position.set(1.5,7.6,2.0);sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   sun.shadow.camera.left=-2.6;sun.shadow.camera.right=2.6;sun.shadow.camera.top=2.8;sun.shadow.camera.bottom=-0.6;
   sun.shadow.camera.near=0.5;sun.shadow.camera.far=10;sun.shadow.bias=-0.0015;
   scene.add(sun);
-  const fill=new THREE.DirectionalLight(0x88a0d0,0.5);fill.position.set(-3,2,-2);scene.add(fill);
+  const fill=new THREE.DirectionalLight(0x9ab0d8,0.85);fill.position.set(-2,3,3);scene.add(fill);
   spec.build(THREE,scene);
   const cam=new THREE.OrthographicCamera(-spec.camHW,spec.camHW,spec.camTop,spec.camBot,0.1,20);
   cam.position.set(0,1.65,3.0);cam.lookAt(0,0.85,0);cam.updateMatrixWorld();cam.updateProjectionMatrix();
@@ -340,6 +340,21 @@ function makeWinTexture(THREE,litP){
   for(let y=14;y<256;y+=26)for(let x=14;x<256;x+=22){g.fillStyle=Math.random()<litP?'#ffe08a':'#0e1420';g.fillRect(x,y,14,18);}
   return new THREE.CanvasTexture(c);
 }
+function gableRoofGeo(THREE,halfW,depth,roofH){
+  const shape=new THREE.Shape();
+  shape.moveTo(-halfW,0);shape.lineTo(0,roofH);shape.lineTo(halfW,0);shape.lineTo(-halfW,0);
+  const geo=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:1});
+  geo.translate(0,0,-depth/2);return geo;
+}
+function makeFacadeTexture(THREE,wallColor,doorColor,winColor,winGlow){
+  const c=document.createElement('canvas');c.width=256;c.height=256;const g=c.getContext('2d');
+  g.fillStyle=wallColor;g.fillRect(0,0,256,256);
+  g.fillStyle=doorColor;g.fillRect(105,140,46,116);
+  g.fillStyle='#3a281a';g.fillRect(112,150,32,90);g.fillStyle='#e8c060';g.fillRect(122,190,8,10);
+  g.fillStyle=winColor;g.fillRect(30,110,60,60);g.fillStyle=winGlow;g.fillRect(30,110,60,8);
+  g.fillStyle=winColor;g.fillRect(166,110,60,60);g.fillStyle=winGlow;g.fillRect(166,110,60,8);
+  return new THREE.CanvasTexture(c);
+}
 const BUILD3D_SPECS={
   office:{name:'office',wt:2,ht:2,fw:96,fh:120,camHW:1.02,camTop:2.26,camBot:-0.43,build:(THREE,scene)=>{
     const W=1.6,D=1.15,H=1.85,ROOFH=0.28;
@@ -349,6 +364,52 @@ const BUILD3D_SPECS={
     const roof=new THREE.Mesh(new THREE.BoxGeometry(W+0.12,ROOFH,D+0.12),roofMat);roof.position.y=H+ROOFH/2;roof.castShadow=roof.receiveShadow=true;scene.add(roof);
     const boxMat=new THREE.MeshStandardMaterial({color:0x2f3644,roughness:0.8});
     const rooftop=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.22,0.32),boxMat);rooftop.position.set(0.35,H+ROOFH+0.11,-0.1);rooftop.castShadow=true;scene.add(rooftop);
+  }},
+  startup:{name:'startup',wt:2,ht:2,fw:96,fh:114,camHW:1.0,camTop:2.05,camBot:-0.42,build:(THREE,scene)=>{
+    const W=1.5,D=1.05,H=0.95,ROOFH=0.55;
+    const wallMat=new THREE.MeshStandardMaterial({map:makeFacadeTexture(THREE,'#c9a878','#6a4a2a','#8fd0e8','#bfe8f4'),roughness:0.85,metalness:0.02});
+    const body=new THREE.Mesh(new THREE.BoxGeometry(W,H,D),wallMat);body.position.y=H/2;body.castShadow=body.receiveShadow=true;scene.add(body);
+    const roofMat=new THREE.MeshStandardMaterial({color:0x3f6fb0,roughness:0.55,metalness:0.05});
+    const roof=new THREE.Mesh(gableRoofGeo(THREE,W/2+0.05,D+0.08,ROOFH),roofMat);roof.position.y=H;roof.castShadow=roof.receiveShadow=true;scene.add(roof);
+  }},
+  factory:{name:'factory',wt:3,ht:2,fw:144,fh:126,camHW:1.55,camTop:2.05,camBot:-0.42,build:(THREE,scene)=>{
+    const W=2.5,D=1.15,H=1.15,ROOFH=0.22;
+    const facW=document.createElement('canvas');facW.width=256;facW.height=200;const fg=facW.getContext('2d');
+    fg.fillStyle='#9aa0a6';fg.fillRect(0,0,256,200);
+    for(let x=6;x<256;x+=18){fg.fillStyle='#8a9096';fg.fillRect(x,0,2,200);}
+    fg.fillStyle='#4a4e54';fg.fillRect(96,60,90,140);fg.fillStyle='#3a3e44';fg.fillRect(102,66,78,128);
+    fg.fillStyle='#a8d8f0';fg.fillRect(20,50,40,36);fg.fillStyle='#a8d8f0';fg.fillRect(196,50,40,36);
+    const wallMat=new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(facW),roughness:0.75,metalness:0.35});
+    const body=new THREE.Mesh(new THREE.BoxGeometry(W,H,D),wallMat);body.position.y=H/2;body.castShadow=body.receiveShadow=true;scene.add(body);
+    const roofMat=new THREE.MeshStandardMaterial({color:0x6a7076,roughness:0.7,metalness:0.15});
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(W+0.1,ROOFH,D+0.1),roofMat);roof.position.y=H+ROOFH/2;roof.castShadow=roof.receiveShadow=true;scene.add(roof);
+    const ventMat=new THREE.MeshStandardMaterial({color:0x6a7076,roughness:0.6,metalness:0.3});
+    const vent=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.24,0.2),ventMat);vent.position.set(0.9,H+ROOFH+0.12,-0.15);vent.castShadow=true;scene.add(vent);
+  }},
+  cafe:{name:'cafe',wt:2,ht:2,fw:96,fh:112,camHW:1.0,camTop:2.0,camBot:-0.42,build:(THREE,scene)=>{
+    const W=1.45,D=1.05,H=1.0;
+    const wallMat=new THREE.MeshStandardMaterial({map:makeFacadeTexture(THREE,'#d8b888','#7a4a2a','#a8d8f0','#d8f0fa'),roughness:0.8,metalness:0.02});
+    const body=new THREE.Mesh(new THREE.BoxGeometry(W,H,D),wallMat);body.position.y=H/2;body.castShadow=body.receiveShadow=true;scene.add(body);
+    // toldo listrado (grosso o bastante p/ ler mesmo pequeno, com textura de listras vermelho/branco)
+    const stripeC=document.createElement('canvas');stripeC.width=128;stripeC.height=32;const sg=stripeC.getContext('2d');
+    for(let x=0;x<128;x+=16){sg.fillStyle=(x/16)%2?'#e06a5a':'#f0e4d0';sg.fillRect(x,0,16,32);}
+    const stripeTex=new THREE.CanvasTexture(stripeC);stripeTex.wrapS=THREE.RepeatWrapping;stripeTex.repeat.set(3,1);
+    const awnMat=new THREE.MeshStandardMaterial({map:stripeTex,roughness:0.75,metalness:0.02});
+    const awning=new THREE.Mesh(new THREE.BoxGeometry(W+0.34,0.16,0.6),awnMat);
+    awning.position.set(0,H*0.76,D/2+0.3);awning.rotation.x=-0.34;awning.castShadow=awning.receiveShadow=true;scene.add(awning);
+    const poleMat=new THREE.MeshStandardMaterial({color:0x6a4a2a,roughness:0.8});
+    for(const px of [-W/2+0.08,W/2-0.08]){const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,H*0.76,6),poleMat);pole.position.set(px,H*0.38,D/2+0.55);pole.castShadow=true;scene.add(pole);}
+  }},
+  hq:{name:'hq',wt:2,ht:2,fw:96,fh:126,camHW:1.05,camTop:2.32,camBot:-0.42,build:(THREE,scene)=>{
+    const W=1.55,D=1.15,H=1.55;
+    const wallMat=new THREE.MeshStandardMaterial({color:0x7a6a4a,roughness:0.7,metalness:0.1});
+    const body=new THREE.Mesh(new THREE.BoxGeometry(W,H,D),wallMat);body.position.y=H/2;body.castShadow=body.receiveShadow=true;scene.add(body);
+    const colMat=new THREE.MeshStandardMaterial({color:0xc9b488,roughness:0.5,metalness:0.15});
+    for(const cx of [-0.55,-0.2,0.2,0.55]){const col=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,H*0.82,8),colMat);col.position.set(cx,H*0.44,D/2+0.02);col.castShadow=true;scene.add(col);}
+    const goldMat=new THREE.MeshStandardMaterial({color:0xe8c060,roughness:0.35,metalness:0.55});
+    const pediment=new THREE.Mesh(new THREE.BoxGeometry(W+0.15,0.32,D+0.15),goldMat);pediment.position.y=H+0.16;pediment.castShadow=pediment.receiveShadow=true;scene.add(pediment);
+    const doorMat=new THREE.MeshStandardMaterial({color:0x3a2e1c,roughness:0.6});
+    const door=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.6,0.05),doorMat);door.position.set(0,0.3,D/2+0.01);scene.add(door);
   }},
 };
 function bakeAllBuildingSprites(){
