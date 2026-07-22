@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Business Simulator — Distrito (protótipo 2D)</title>
+<!-- Three.js: usado só p/ "assar" luz/sombra 3D real nos sprites de prédio (uma vez, no carregamento).
+     O jogo em si continua 100% Canvas 2D — se isto não carregar (offline/CDN fora), os prédios caem
+     de volta pro desenho 2D atual automaticamente (ver bakeAllBuildingSprites no script principal). -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"}}</script>
 <style>
   :root{
     --wood:#4a3524; --wood2:#3a2919; --wood-edge:#241810; --wood-hi:#6a4d33;
@@ -299,6 +303,62 @@ function bldHQ(){ // sede/HQ 2x2 dourada
   P(g,13,28,6,8,'#4a3a24'); // door
   return {c,wt,ht,ox:16,oy:38,name:'hq'};}
 const BSPRITES={office:bldOffice(),startup:bldStartup(),factory:bldFactory(),cafe:bldCafe(),hq:bldHQ()};
+
+/* ---- upgrade progressivo: "assa" luz/sombra 3D real (Three.js) nos sprites de prédio, uma vez, em segundo
+   plano. O 2D acima já deixa o jogo 100% jogável na hora; se isto carregar, os prédios ganham volume/
+   sombreamento real e substituem o sprite antigo em BSPRITES (mesmo wt/ht/ox/oy — nada de gameplay muda).
+   Se falhar (offline, CDN fora), o catch mantém o 2D — nunca quebra o jogo. ---- */
+function bake3DBuilding(THREE,spec){
+  const SS=5,FW=spec.fw,FH=spec.fh,RW=FW*SS,RH=FH*SS;
+  const renderer=new THREE.WebGLRenderer({canvas:document.createElement('canvas'),antialias:true,alpha:true});
+  renderer.setSize(RW,RH);renderer.setClearColor(0,0);
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+  const scene=new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xcfe0ff,0x35301f,0.55));
+  const sun=new THREE.DirectionalLight(0xfff2d8,2.15);sun.position.set(1.5,7.6,2.0);sun.castShadow=true;
+  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-2.6;sun.shadow.camera.right=2.6;sun.shadow.camera.top=2.8;sun.shadow.camera.bottom=-0.6;
+  sun.shadow.camera.near=0.5;sun.shadow.camera.far=10;sun.shadow.bias=-0.0015;
+  scene.add(sun);
+  const fill=new THREE.DirectionalLight(0x88a0d0,0.5);fill.position.set(-3,2,-2);scene.add(fill);
+  spec.build(THREE,scene);
+  const cam=new THREE.OrthographicCamera(-spec.camHW,spec.camHW,spec.camTop,spec.camBot,0.1,20);
+  cam.position.set(0,1.65,3.0);cam.lookAt(0,0.85,0);cam.updateMatrixWorld();cam.updateProjectionMatrix();
+  renderer.render(scene,cam);
+  const anchor=new THREE.Vector3(0,0,0).project(cam);
+  const pxFracX=(anchor.x+1)/2,pxFracY=(1-anchor.y)/2;
+  const outC=document.createElement('canvas');outC.width=FW;outC.height=FH;
+  const outG=outC.getContext('2d');outG.imageSmoothingEnabled=true;outG.imageSmoothingQuality='high';
+  outG.drawImage(renderer.domElement,0,0,FW,FH);
+  renderer.dispose();
+  return {c:outC,wt:spec.wt,ht:spec.ht,ox:(pxFracX*FW)/AP,oy:(pxFracY*FH)/AP,name:spec.name};
+}
+function makeWinTexture(THREE,litP){
+  const c=document.createElement('canvas');c.width=256;c.height=256;const g=c.getContext('2d');
+  g.fillStyle='#05070a';g.fillRect(0,0,256,256);
+  for(let y=14;y<256;y+=26)for(let x=14;x<256;x+=22){g.fillStyle=Math.random()<litP?'#ffe08a':'#0e1420';g.fillRect(x,y,14,18);}
+  return new THREE.CanvasTexture(c);
+}
+const BUILD3D_SPECS={
+  office:{name:'office',wt:2,ht:2,fw:96,fh:120,camHW:1.02,camTop:2.26,camBot:-0.43,build:(THREE,scene)=>{
+    const W=1.6,D=1.15,H=1.85,ROOFH=0.28;
+    const wallMat=new THREE.MeshStandardMaterial({color:0x5b6b86,roughness:0.35,metalness:0.25,emissiveMap:makeWinTexture(THREE,0.62),emissive:0xffffff,emissiveIntensity:0.9});
+    const body=new THREE.Mesh(new THREE.BoxGeometry(W,H,D),wallMat);body.position.y=H/2;body.castShadow=body.receiveShadow=true;scene.add(body);
+    const roofMat=new THREE.MeshStandardMaterial({color:0x3c4658,roughness:0.75,metalness:0.1});
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(W+0.12,ROOFH,D+0.12),roofMat);roof.position.y=H+ROOFH/2;roof.castShadow=roof.receiveShadow=true;scene.add(roof);
+    const boxMat=new THREE.MeshStandardMaterial({color:0x2f3644,roughness:0.8});
+    const rooftop=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.22,0.32),boxMat);rooftop.position.set(0.35,H+ROOFH+0.11,-0.1);rooftop.castShadow=true;scene.add(rooftop);
+  }},
+};
+function bakeAllBuildingSprites(){
+  import('three').then(THREE=>{
+    for(const key of Object.keys(BUILD3D_SPECS)){
+      try{ BSPRITES[key]=bake3DBuilding(THREE,BUILD3D_SPECS[key]); }
+      catch(e){ console.error('bake 3D falhou p/ '+key+' — mantendo sprite 2D',e); }
+    }
+  }).catch(e=>{ console.error('Three.js indisponível (offline?) — prédios seguem em 2D',e); });
+}
 
 /* ---- worker sprite (little employee) ---- */
 function workerSprite(shirt,skin,hair){const S=12,SH=16;const {c,g}=makeCanvas(S*AP,SH*AP);
@@ -652,6 +712,7 @@ genWorld();
 companies.forEach(c=>{c.ops=rnd(68,82);c.scale=rnd(1.15,1.45);}); // distrito inicial já operante e lucrativo
 for(let i=0;i<4;i++)S.rivals.push(genRival());
 centerOnHero();buildToolbar();refreshHUD();refreshObj();
+bakeAllBuildingSprites(); // upgrade progressivo (3D real) em segundo plano — não bloqueia o boot
 setTimeout(()=>showHint('👤 Este é VOCÊ (anel dourado). Toque no chão para andar · 🗺️ Mapa te leva até você.'),400);
 setInterval(()=>{if(!S.over)endDay();},5500); // o tempo passa: economia avança
 requestAnimationFrame(loop);
