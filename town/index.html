@@ -106,10 +106,18 @@ function makeCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.he
 function P(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x*AP,y*AP,w*AP,h*AP);}
 function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
 function rngSeed(s){return ()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};}
+function tileHash(x,y,n){let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;h^=h>>>16;return ((h>>>0)%n+n)%n;} // hash determinístico (evita padrão diagonal do módulo linear)
+function paintSoftShadow(g,cx,cy,rx,ry,alpha){ // sombra elíptica suave (gradiente), coords em art-pixels como P()
+  cx*=AP;cy*=AP;rx*=AP;ry*=AP;const rad=Math.max(rx,ry);
+  const grd=g.createRadialGradient(cx,cy,0,cx,cy,rad);
+  grd.addColorStop(0,'rgba(0,0,0,'+alpha+')');grd.addColorStop(0.65,'rgba(0,0,0,'+(alpha*0.5)+')');grd.addColorStop(1,'rgba(0,0,0,0)');
+  g.save();g.translate(cx,cy);g.scale(rx/rad,ry/rad);g.translate(-cx,-cy);
+  g.fillStyle=grd;g.beginPath();g.arc(cx,cy,rad,0,7);g.fill();g.restore();
+}
 
 /* ---- palette ---- */
 const COL={
-  grass:['#6a9a3f','#5f9038','#74a447','#5a8a34'], grassDot:['#7cad4a','#537f30'],
+  grass:['#6a9a3f','#5f9038','#74a447','#5a8a34','#7fae52','#527c30'], grassDot:['#7cad4a','#537f30'],
   path:'#a07c4c', path2:'#916d3f', pathEdge:'#7a5a34',
   plaza:'#b9a888', plaza2:'#a89877',
   water:'#4a82ad', water2:'#5a92bd',
@@ -122,6 +130,7 @@ function grassTile(seed){const {c,g}=makeCanvas(TILE,TILE);const r=rngSeed(seed)
   // occasional tufts / flowers
   if(r()<0.28){const x=(r()*12+2)|0,y=(r()*12+2)|0;P(g,x,y,1,2,'#3f6a2a');P(g,x+1,y,1,2,'#3f6a2a');}
   if(r()<0.12){const x=(r()*12+2)|0,y=(r()*12+2)|0;const fc=['#e8d84a','#e88a8a','#d8d8f0'][(r()*3)|0];P(g,x,y,1,1,fc);P(g,x,y-1,1,1,'#6a9a3f');}
+  if(r()<0.16){const x=(r()*10+3)|0,y=(r()*10+3)|0;P(g,x,y,2,1,'#7a6440');P(g,x,y+1,1,1,'#6a5636');} // remendo de terra à mostra (variação natural)
   return c;}
 function pathTile(seed){const {c,g}=makeCanvas(TILE,TILE);const r=rngSeed(seed);
   g.fillStyle=COL.path;g.fillRect(0,0,TILE,TILE);
@@ -140,14 +149,13 @@ function waterTile(seed){const {c,g}=makeCanvas(TILE,TILE);const r=rngSeed(seed)
   return c;}
 
 const tileCache={grass:[],path:[],plaza:[],water:[]};
-for(let i=0;i<8;i++){tileCache.grass.push(grassTile(1000+i*7));tileCache.path.push(pathTile(2000+i*7));tileCache.plaza.push(plazaTile(3000+i*7));tileCache.water.push(waterTile(4000+i*7));}
+for(let i=0;i<12;i++){tileCache.grass.push(grassTile(1000+i*7));tileCache.path.push(pathTile(2000+i*7));tileCache.plaza.push(plazaTile(3000+i*7));tileCache.water.push(waterTile(4000+i*7));}
 
 /* ---- decor: trees / rocks (pre-rendered, drawn above ground) ---- */
 function treeSprite(seed){const S=22;const {c,g}=makeCanvas(S*AP,S*AP);const r=rngSeed(seed);
+  paintSoftShadow(g,11,20,7,2.4,0.30);
   // trunk
   P(g,10,15,2,5,'#6b4a2a');P(g,10,15,1,5,'#7d5a34');
-  // shadow
-  g.fillStyle='rgba(0,0,0,0.18)';g.fillRect(6*AP,19*AP,10*AP,2*AP);
   // foliage clusters
   const gy=['#3f7a3a','#4f8f45','#357030'];
   const blobs=[[11,7,6],[7,9,5],[15,9,5],[9,5,4],[13,5,4],[11,11,5]];
@@ -156,11 +164,11 @@ function treeSprite(seed){const S=22;const {c,g}=makeCanvas(S*AP,S*AP);const r=r
   for(let i=0;i<10;i++){const x=(r()*10+6)|0,y=(r()*8+3)|0;P(g,x,y,1,1,'#6aad5a');}
   return {c,ox:11,oy:19};}
 function rockSprite(seed){const S=12;const {c,g}=makeCanvas(S*AP,S*AP);const r=rngSeed(seed);
-  g.fillStyle='rgba(0,0,0,0.16)';g.fillRect(2*AP,8*AP,8*AP,2*AP);
+  paintSoftShadow(g,6,9.5,5,1.8,0.26);
   P(g,3,4,6,5,'#8a8f96');P(g,3,4,6,1,'#a6abb2');P(g,3,8,6,1,'#6a6f76');P(g,4,5,2,2,'#b6bbc2');
   return {c,ox:6,oy:9};}
 function fountainSprite(){const S=18;const {c,g}=makeCanvas(S*AP,S*AP);
-  g.fillStyle='rgba(0,0,0,0.18)';g.fillRect(2*AP,14*AP,14*AP,2*AP);
+  paintSoftShadow(g,9,15,8,2.2,0.30);
   P(g,2,8,14,7,'#9a9088');P(g,2,8,14,1,'#b0a69a');P(g,2,14,14,1,'#7a7068');
   P(g,3,10,12,4,'#4a82ad');P(g,3,10,12,1,'#6aa0cd');            // basin + water
   P(g,8,4,2,6,'#8a8078');P(g,7,3,4,2,'#9a9088');                // spout
@@ -169,7 +177,7 @@ function fountainSprite(){const S=18;const {c,g}=makeCanvas(S*AP,S*AP);
 const treeSprites=[treeSprite(11),treeSprite(23),treeSprite(37),treeSprite(51)];
 const rockSprites=[rockSprite(9),rockSprite(19)];
 function lampSprite(){const S=6,SH=20;const {c,g}=makeCanvas(S*AP,SH*AP);
-  g.fillStyle='rgba(0,0,0,0.16)';g.fillRect(1*AP,18*AP,4*AP,1*AP);
+  paintSoftShadow(g,3,18.5,2.6,1,0.24);
   P(g,2,4,2,15,'#3a3026');P(g,2,4,1,15,'#4a4032');           // poste
   P(g,1,1,4,4,'#2a241c');P(g,1,1,4,1,'#4a4032');             // luminária
   P(g,2,2,2,2,'#ffe6a0');                                     // luz quente
@@ -179,17 +187,17 @@ function cropSprite(seed){const S=TILE/AP,r=rngSeed(seed);const {c,g}=makeCanvas
   for(let y=2;y<16;y+=3){P(g,1,y,14,1,'#6a4a2a');for(let x=2;x<15;x+=3)P(g,x,y-1,1,1,r()<.7?'#4f8f45':'#6aad5a');} // sulcos + brotos
   return c;}
 function wellSprite(){const {c,g}=makeCanvas(14*AP,16*AP);
-  g.fillStyle='rgba(0,0,0,0.18)';g.fillRect(2*AP,13*AP,10*AP,2*AP);
+  paintSoftShadow(g,7,14,6,2,0.28);
   P(g,2,8,10,6,'#8a8078');P(g,2,8,10,1,'#a09890');P(g,2,13,10,1,'#6a6058');   // parede de pedra
   P(g,3,9,8,4,'#2f2822');P(g,3,9,8,2,'#4a82ad');                              // buraco + água
   P(g,2,2,2,7,'#6a4a2a');P(g,10,2,2,7,'#6a4a2a');                             // postes do telhado
   P(g,1,1,12,3,'#8a4a3a');P(g,1,1,12,1,'#a05a48');P(g,6,3,2,5,'#5a3a24');     // telhado + balde
   return {c,ox:7,oy:14};}
 function barrelSprite(){const {c,g}=makeCanvas(8*AP,10*AP);
-  g.fillStyle='rgba(0,0,0,0.18)';g.fillRect(1*AP,8*AP,6*AP,1*AP);
+  paintSoftShadow(g,4,8.5,4,1.4,0.26);
   P(g,1,1,6,8,'#8a5a34');P(g,1,1,6,1,'#a06a40');P(g,1,3,6,1,'#5a3a20');P(g,1,6,6,1,'#5a3a20');P(g,3,1,1,8,'#a06a40'); return {c,ox:4,oy:8};}
 function crateSprite(){const {c,g}=makeCanvas(9*AP,9*AP);
-  g.fillStyle='rgba(0,0,0,0.16)';g.fillRect(1*AP,7*AP,7*AP,1*AP);
+  paintSoftShadow(g,4.5,7.5,4,1.4,0.24);
   P(g,1,1,7,7,'#a07a44');P(g,1,1,7,1,'#b88a50');P(g,1,1,1,7,'#8a6838');P(g,7,1,1,7,'#8a6838');P(g,1,7,7,1,'#8a6838');P(g,4,1,1,7,'#8a6838');P(g,1,4,7,1,'#8a6838'); return {c,ox:4,oy:7};}
 function fenceHspr(){const {c,g}=makeCanvas(TILE,10*AP);
   P(g,1,2,2,7,'#6a4a2a');P(g,13,2,2,7,'#6a4a2a');P(g,1,2,2,1,'#8a6440');P(g,13,2,2,1,'#8a6440');   // postes
@@ -205,6 +213,30 @@ function fenceRing(fx,fy,fw,fh){ // cerca no anel de fora do retângulo (só em 
   for(let x=-1;x<=fw;x++){put(fx+x,fy-1,fH);put(fx+x,fy+fh,fH);}
   for(let y=0;y<fh;y++){put(fx-1,fy+y,fV);put(fx+fw,fy+y,fV);}
 }
+/* ---- moldura do mapa: montanhas + mata densa (o cenário nunca "corta" abrupto na borda) ---- */
+function mountainSprite(seed){const S=26,SH=22;const {c,g}=makeCanvas(S*AP,SH*AP);const r=rngSeed(seed);
+  paintSoftShadow(g,13,SH-2,10,3,0.24);
+  g.fillStyle='#5f6a78';g.beginPath();g.moveTo(2*AP,(SH-3)*AP);g.lineTo(13*AP,3*AP);g.lineTo(24*AP,(SH-3)*AP);g.closePath();g.fill();
+  g.fillStyle='#79838f';g.beginPath();g.moveTo(13*AP,3*AP);g.lineTo(7*AP,(SH-3)*AP);g.lineTo(13*AP,(SH-6)*AP);g.closePath();g.fill(); // faceta iluminada
+  g.fillStyle='#e8ecf2';g.beginPath();g.moveTo(13*AP,3*AP);g.lineTo(9.5*AP,9*AP);g.lineTo(16.5*AP,9*AP);g.closePath();g.fill();       // neve no topo
+  g.fillStyle='#f4f7fa';g.beginPath();g.moveTo(13*AP,3*AP);g.lineTo(11.5*AP,6.5*AP);g.lineTo(14.5*AP,6.5*AP);g.closePath();g.fill();
+  return {c,ox:13,oy:SH-2};}
+function denseTreeSprite(seed){const S=24;const {c,g}=makeCanvas(S*AP,S*AP);const r=rngSeed(seed);
+  paintSoftShadow(g,12,S-3,9,2.6,0.28);
+  P(g,11,15,2,6,'#43301d');
+  const gy=['#2f5f2c','#3a6f36','#265424'];
+  const blobs=[[12,8,7],[7,10,6],[17,10,6],[9,5,5],[15,5,5],[12,12,6]];
+  for(const [x,y,rad] of blobs){g.fillStyle=gy[(r()*3)|0];g.beginPath();g.arc(x*AP,y*AP,rad*AP,0,7);g.fill();}
+  for(let i=0;i<8;i++){const x=(r()*10+6)|0,y=(r()*8+3)|0;P(g,x,y,1,1,'#4f8f45');}
+  return {c,ox:12,oy:S-3};}
+function farGroundTile(seed){const {c,g}=makeCanvas(TILE,TILE);const r=rngSeed(seed);
+  const tones=['#3f5a34','#39522f','#43603a'];
+  g.fillStyle=tones[(r()*tones.length)|0];g.fillRect(0,0,TILE,TILE);
+  for(let i=0;i<8;i++){const x=(r()*16)|0,y=(r()*16)|0;P(g,x,y,1,1,'#2d4526');}
+  return c;}
+const mountainSprites=[mountainSprite(701),mountainSprite(719)];
+const denseTreeSprites=[denseTreeSprite(731),denseTreeSprite(743),denseTreeSprite(757)];
+const farTiles=[];for(let i=0;i<6;i++)farTiles.push(farGroundTile(6000+i*7));
 
 /* ---- building sprites (pixel art, procedural) ---- */
 // each returns {c, wt, ht} where wt/ht = footprint in tiles; sprite is taller than footprint (roof)
@@ -333,6 +365,16 @@ function genWorld(){
   putDecor(cxA-3,cyA-3,well);
   [[cxA+2,cyA-6],[cxA+6,cyA+2],[cxA-6,cyA+2],[cxA-9,cyA-6],[cxA+9,cyA+6]].forEach(p=>putDecor(p[0],p[1],barrel));
   [[cxA-7,cyA+2],[cxA+7,cyA+2],[cxA+2,cyA+6],[cxA-3,cyA-6]].forEach(p=>putDecor(p[0],p[1],crate));
+  // moldura do mapa: montanhas (topo/esquerda, como a referência) + mata densa (demais lados) — 2 fileiras de profundidade
+  const rb=rngSeed(9001);
+  for(let x=-2;x<MAPW+2;x++){
+    for(const gy of [-1,-2]){const j=rb()*0.7-0.35; if(rb()<0.68)decor.push({kind:'mtn',gx:x+j,gy,spr:pick(mountainSprites)});else decor.push({kind:'ftree',gx:x+j,gy,spr:pick(denseTreeSprites)});}
+    for(const gy of [MAPH,MAPH+1]){const j=rb()*0.7-0.35; if(rb()<0.85)decor.push({kind:'ftree',gx:x+j,gy,spr:pick(denseTreeSprites)});}
+  }
+  for(let y=-2;y<MAPH+2;y++){
+    for(const gx of [-1,-2]){const j=rb()*0.7-0.35; if(rb()<0.55)decor.push({kind:'mtn',gx,gy:y+j,spr:pick(mountainSprites)});else decor.push({kind:'ftree',gx,gy:y+j,spr:pick(denseTreeSprites)});}
+    for(const gx of [MAPW,MAPW+1]){const j=rb()*0.7-0.35; if(rb()<0.85)decor.push({kind:'ftree',gx,gy:y+j,spr:pick(denseTreeSprites)});}
+  }
   // pedestres ambientes (vida na praça)
   const sedeB=buildings[0];for(let k=0;k<8;k++)spawnWorker(sedeB,null);
   // VOCÊ — o herói, no centro do distrito (perto da fonte)
@@ -354,6 +396,14 @@ function pickTarget(w){w.tx=w.home.cx+(Math.random()*4-2)*TILE;w.ty=w.home.cy+(M
 
 /* ============================ CAMERA ============================ */
 let camX=0,camY=0; let hero=null;
+let vignetteImg=null,vignetteW=0,vignetteH=0;
+function ensureVignette(){ // cacheada; só regenera no resize (1 gradiente, não por frame)
+  if(vignetteImg&&vignetteW===W&&vignetteH===H)return;
+  vignetteW=W;vignetteH=H;const {c,g}=makeCanvas(W,H);
+  const vg=g.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.72);
+  vg.addColorStop(0,'rgba(10,14,8,0)');vg.addColorStop(1,'rgba(6,10,5,0.4)');
+  g.fillStyle=vg;g.fillRect(0,0,W,H);vignetteImg=c;
+}
 function clampCam(){const worldW=MAPW*TILE,worldH=MAPH*TILE;camX=Math.max(-40,Math.min(worldW-W+40,camX));camY=Math.max(-40,Math.min(worldH-H+40,camY));}
 function centerCam(){camX=(MAPW*TILE-W)/2;camY=(MAPH*TILE-H)/2-40;clampCam();}
 function centerOnHero(){if(!hero)return centerCam();camX=hero.x-W/2;camY=hero.y-H/2;clampCam();}
@@ -363,20 +413,31 @@ function draw(){
   ctx.clearRect(0,0,W,H);
   // sky/ground base
   ctx.fillStyle='#2a3a1e';ctx.fillRect(0,0,W,H);
-  const x0=Math.max(0,Math.floor(camX/TILE)), y0=Math.max(0,Math.floor(camY/TILE));
-  const x1=Math.min(MAPW,Math.ceil((camX+W)/TILE)), y1=Math.min(MAPH,Math.ceil((camY+H)/TILE));
+  const vx0=Math.floor(camX/TILE), vy0=Math.floor(camY/TILE);
+  const vx1=Math.ceil((camX+W)/TILE), vy1=Math.ceil((camY+H)/TILE);
+  // moldura: terreno "distante" fora do mapa jogável — nunca revela cor chapada na borda
+  for(let y=vy0;y<vy1;y++)for(let x=vx0;x<vx1;x++){
+    if(x>=0&&x<MAPW&&y>=0&&y<MAPH)continue;
+    const img=farTiles[tileHash(x,y,farTiles.length)];
+    ctx.drawImage(img,Math.round(x*TILE-camX),Math.round(y*TILE-camY));
+  }
+  const x0=Math.max(0,vx0), y0=Math.max(0,vy0);
+  const x1=Math.min(MAPW,vx1), y1=Math.min(MAPH,vy1);
   // tiles
   for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
     const t=map[y][x];const arr=t===1?tileCache.path:t===2?tileCache.plaza:t===3?tileCache.water:t===4?cropTiles:tileCache.grass;
-    const img=arr[((x*3+y*7)%arr.length+arr.length)%arr.length];
+    const img=arr[tileHash(x,y,arr.length)];
     const px=Math.round(x*TILE-camX),py=Math.round(y*TILE-camY);
     ctx.drawImage(img,px,py);
     // caminho/praça "cavados" na grama: aresta escura onde encostam em grama (fidelidade ao print)
-    if(t===1||t===2){const soft=x=>x!==1&&x!==2;const E=4,ec=t===1?'#6a4a28':'#8a7a5a';ctx.fillStyle=ec;
+    if(t===1||t===2){const soft=xx=>xx!==1&&xx!==2;const E=4,ec=t===1?'#6a4a28':'#8a7a5a';ctx.fillStyle=ec;
       if(!map[y-1]||soft(map[y-1][x]))ctx.fillRect(px,py,TILE,E);
       if(!map[y+1]||soft(map[y+1][x]))ctx.fillRect(px,py+TILE-E,TILE,E);
       if(soft(map[y][x-1]))ctx.fillRect(px,py,E,TILE);
       if(soft(map[y][x+1]))ctx.fillRect(px+TILE-E,py,E,TILE);
+      // dither leve: quebra a linha reta da transição (mais orgânico, menos "colado")
+      for(let k=0;k<4;k++){const hk=tileHash(x*97+k*13,y*89+k*7,TILE*TILE);const ex=hk%TILE,ey=(hk/TILE|0)%TILE;
+        if(ex<E+3||ex>TILE-E-3||ey<E+3||ey>TILE-E-3)ctx.fillRect(px+ex,py+ey,2,2);}
     }
   }
   // depth-sorted sprites (decor + buildings + workers) by baseline y
@@ -406,6 +467,8 @@ function draw(){
   for(const e of ents)e.draw();
   // placement ghost
   if(placing){drawGhost();}
+  // vinheta sutil (moldura do enquadramento — cacheada, 1 blit por frame)
+  ensureVignette();ctx.drawImage(vignetteImg,0,0);
 }
 
 /* ---- placement ---- */
